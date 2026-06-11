@@ -6,8 +6,19 @@ services:
     ports:
       - "9527:9527"
     volumes:
-      - ./config.yaml:/app/config.yaml:ro   # Web/Telegram 设置（账号可留空，网页上传）
-      - ./data:/app/data                     # 网页上传的账号+密钥持久化在这里
+      - ./data:/app/data            # 网页上传的账号+密钥持久化在这里
     environment:
-      - OCI_MANAGER_CONFIG=/app/config.yaml
       - OCI_MANAGER_DATA=/app/data
+      # 访问口令（留空=不鉴权，公网部署务必设置）：
+      - OCI_MANAGER_WEB_PASSWORD=改成你的访问口令
+      # 想用 Telegram 机器人，取消下面三行注释并填写：
+      # - OCI_MANAGER_TG_ENABLED=true
+      # - OCI_MANAGER_TG_TOKEN=123456:ABC-your-bot-token
+      # - OCI_MANAGER_TG_ADMINS=123456789
+    # 不想用环境变量、想用 config.yaml 文件管理的话：
+    #  1) 先在宿主机 cp config.example.yaml config.yaml 建好文件（必须先存在，否则会被建成目录！）
+    #  2) 取消下面两行注释
+    # volumes 追加:
+    #   - ./config.yaml:/app/config.yaml:ro
+    # environment 追加:
+    #   - OCI_MANAGER_CONFIG=/app/config.yaml

@@ -78,6 +78,21 @@ class Service:
     def terminate(self, account: str, instance_id: str, preserve_boot: bool = False):
         return self.manager(account).terminate(instance_id, preserve_boot)
 
+    def rename_instance(self, account: str, instance_id: str, new_name: str):
+        return self.manager(account).rename_instance(instance_id, new_name)
+
+    def resize_instance(self, account: str, instance_id: str, ocpus: float, memory_gb: float):
+        return self.manager(account).resize_instance(instance_id, ocpus, memory_gb)
+
+    def get_boot_volume(self, account: str, instance_id: str):
+        return self.manager(account).get_boot_volume(instance_id)
+
+    def resize_boot_volume(self, account: str, instance_id: str, size_gb=None, vpu=None):
+        return self.manager(account).resize_boot_volume(instance_id, size_gb, vpu)
+
+    def ssh_info(self, account: str, instance_id: str):
+        return self.manager(account).ssh_info(instance_id)
+
     def change_ip(self, account: str, instance_id: str):
         return self.manager(account).change_public_ip(instance_id)
 

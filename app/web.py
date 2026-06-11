@@ -58,6 +58,26 @@ class ConfigDelReq(BaseModel):
     name: str
 
 
+class RenameReq(BaseModel):
+    account: str
+    instance_id: str
+    name: str
+
+
+class ResizeReq(BaseModel):
+    account: str
+    instance_id: str
+    ocpus: float
+    memory_gb: float
+
+
+class BootResizeReq(BaseModel):
+    account: str
+    instance_id: str
+    size_gb: int | None = None
+    vpu: int | None = None
+
+
 def create_app(service: Service, password: str = "") -> FastAPI:
     app = FastAPI(title="OCI Manager")
     valid_tokens: set = set()
@@ -157,8 +177,39 @@ def create_app(service: Service, password: str = "") -> FastAPI:
     @app.post("/api/terminate")
     async def terminate(req: ActionReq, _=Depends(check_auth)):
         import asyncio
-        msg = await asyncio.to_thread(service.terminate, req.account, req.instance_id)
+        preserve = req.action == "preserve"   # action=preserve 表示保留启动盘
+        msg = await asyncio.to_thread(service.terminate, req.account, req.instance_id, preserve)
         return {"ok": True, "msg": msg}
+
+    @app.post("/api/instance/rename")
+    async def inst_rename(req: RenameReq, _=Depends(check_auth)):
+        import asyncio
+        msg = await asyncio.to_thread(service.rename_instance, req.account, req.instance_id, req.name)
+        return {"ok": True, "msg": msg}
+
+    @app.post("/api/instance/resize")
+    async def inst_resize(req: ResizeReq, _=Depends(check_auth)):
+        import asyncio
+        msg = await asyncio.to_thread(service.resize_instance, req.account, req.instance_id, req.ocpus, req.memory_gb)
+        return {"ok": True, "msg": msg}
+
+    @app.get("/api/instance/boot_volume")
+    async def inst_bootvol(account: str, instance_id: str, _=Depends(check_auth)):
+        import asyncio
+        data = await asyncio.to_thread(service.get_boot_volume, account, instance_id)
+        return data
+
+    @app.post("/api/instance/resize_boot")
+    async def inst_resize_boot(req: BootResizeReq, _=Depends(check_auth)):
+        import asyncio
+        msg = await asyncio.to_thread(service.resize_boot_volume, req.account, req.instance_id, req.size_gb, req.vpu)
+        return {"ok": True, "msg": msg}
+
+    @app.get("/api/instance/ssh")
+    async def inst_ssh(account: str, instance_id: str, _=Depends(check_auth)):
+        import asyncio
+        data = await asyncio.to_thread(service.ssh_info, account, instance_id)
+        return data
 
     # ---------- 用户管理 ----------
     @app.get("/api/users")

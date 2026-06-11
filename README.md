@@ -34,6 +34,23 @@ python -m app.main
 
 启动后访问 `http://你的IP:9527`。
 
+## 部署最省心的方式（环境变量，无需 config.yaml）
+
+`docker-compose.yml` 里直接用环境变量设访问口令，不依赖 config.yaml 文件，**彻底避开 Docker 把不存在的挂载文件建成目录的坑**：
+
+```yaml
+environment:
+  - OCI_MANAGER_WEB_PASSWORD=你的访问口令
+  # 想用 Telegram：
+  # - OCI_MANAGER_TG_ENABLED=true
+  # - OCI_MANAGER_TG_TOKEN=...
+  # - OCI_MANAGER_TG_ADMINS=123456789
+```
+
+改完 `docker compose up -d` 即可。账号到网页「配置」页上传，持久化在 `data/`。
+
+> 如果你更习惯用 config.yaml 文件，记得**先** `cp config.example.yaml config.yaml` 建好文件再 `up`，否则 Docker 会把它建成目录导致启动报 `IsADirectoryError`。
+
 ## 推荐：先部署，再网页上传账号
 
 账号多时不用在服务器一个个传文件。`config.yaml` 里 `accounts` 留空（或干脆没有），直接起服务，然后：

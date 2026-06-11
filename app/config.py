@@ -77,14 +77,17 @@ class AppConfig:
 
 def load_config(path: str = None) -> AppConfig:
     path = path or CONFIG_PATH
-    if os.path.exists(path):
+    import logging
+    clog = logging.getLogger("oci_manager.config")
+    # 用 isfile：即使 Docker 把不存在的挂载点建成了目录，也当没配置处理，不崩
+    if os.path.isfile(path):
         with open(path, "r", encoding="utf-8") as f:
             raw = yaml.safe_load(f) or {}
     else:
-        # 没有 config.yaml 也能起：Web 默认开，账号靠网页上传
-        import logging
-        logging.getLogger("oci_manager.config").warning(
-            "未找到 %s，使用默认配置（Web 开启，账号请在网页「配置」页上传）", path)
+        if os.path.isdir(path):
+            clog.warning("%s 是目录（Docker 挂载坑），忽略，使用默认配置", path)
+        else:
+            clog.warning("未找到 %s，使用默认配置（账号请在网页「配置」页上传）", path)
         raw = {}
 
     accounts = []
@@ -104,26 +107,36 @@ def load_config(path: str = None) -> AppConfig:
                 compartment=item.get("compartment"),
             ))
     except Exception as e:
-        import logging
-        logging.getLogger("oci_manager.config").error("加载存储账号失败: %s", e)
+        clog.error("加载存储账号失败: %s", e)
 
     tg_raw = raw.get("telegram", {}) or {}
     admin_ids = tg_raw.get("admin_ids", [])
     if isinstance(admin_ids, str):
         admin_ids = [x.strip() for x in admin_ids.split(",") if x.strip()]
     admin_ids = [str(x) for x in admin_ids]
+    # 环境变量覆盖（可不依赖 config.yaml）
+    env = os.environ.get
+    if env("OCI_MANAGER_TG_ADMINS"):
+        admin_ids = [x.strip() for x in env("OCI_MANAGER_TG_ADMINS").split(",") if x.strip()]
     telegram = TelegramConfig(
-        enabled=tg_raw.get("enabled", False),
-        token=tg_raw.get("token", ""),
+        enabled=_envbool("OCI_MANAGER_TG_ENABLED", tg_raw.get("enabled", False)),
+        token=env("OCI_MANAGER_TG_TOKEN", tg_raw.get("token", "")),
         admin_ids=admin_ids,
     )
 
     web_raw = raw.get("web", {}) or {}
     web = WebConfig(
-        enabled=web_raw.get("enabled", True),
-        host=web_raw.get("host", "0.0.0.0"),
-        port=int(web_raw.get("port", 9527)),
-        password=web_raw.get("password", ""),
+        enabled=_envbool("OCI_MANAGER_WEB_ENABLED", web_raw.get("enabled", True)),
+        host=env("OCI_MANAGER_WEB_HOST", web_raw.get("host", "0.0.0.0")),
+        port=int(env("OCI_MANAGER_WEB_PORT", web_raw.get("port", 9527))),
+        password=env("OCI_MANAGER_WEB_PASSWORD", web_raw.get("password", "")),
     )
 
     return AppConfig(accounts=accounts, telegram=telegram, web=web)
+
+
+def _envbool(key: str, default: bool) -> bool:
+    v = os.environ.get(key)
+    if v is None:
+        return default
+    return v.strip().lower() in ("1", "true", "yes", "on")

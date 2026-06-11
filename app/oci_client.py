@@ -32,9 +32,9 @@ class OciManager:
         self.network = oci.core.VirtualNetworkClient(cfg)
         self.identity = oci.identity.IdentityClient(cfg)
         self.bs = oci.core.BlockstorageClient(cfg)
-        # 成本/配额相关 client（按需用）
-        self.usage = oci.usage_api.UsageapiClient(cfg)
         self.limits = oci.limits.LimitsClient(cfg)
+        self._usage = None          # 懒加载，指向 home region
+        self._home_region = None
         self._tenancy_name = None
 
     @property
@@ -57,6 +57,7 @@ class OciManager:
                 continue
             pub_ip = self._get_instance_public_ip(inst.id)
             shape_cfg = inst.shape_config
+            bv = self._get_boot_volume_brief(inst.id, inst.availability_domain)
             result.append({
                 "id": inst.id,
                 "name": inst.display_name,
@@ -67,9 +68,24 @@ class OciManager:
                 "ad": inst.availability_domain,
                 "region": inst.region,
                 "public_ip": pub_ip,
+                "boot_gb": bv.get("size_gb"),
+                "boot_vpu": bv.get("vpu"),
                 "time_created": str(inst.time_created),
             })
         return result
+
+    def _get_boot_volume_brief(self, instance_id: str, ad: str) -> Dict:
+        try:
+            atts = self.compute.list_boot_volume_attachments(
+                ad, self.compartment_id, instance_id=instance_id).data
+            for a in atts:
+                if a.lifecycle_state == "ATTACHED":
+                    bv = self.bs.get_boot_volume(a.boot_volume_id).data
+                    return {"id": bv.id, "size_gb": int(bv.size_in_gbs),
+                            "vpu": int(bv.vpus_per_gb)}
+        except Exception as e:
+            log.debug("取启动盘失败 %s: %s", instance_id, e)
+        return {}
 
     def get_instance(self, instance_id: str):
         return self.compute.get_instance(instance_id).data
@@ -88,7 +104,48 @@ class OciManager:
         self.compute.terminate_instance(
             instance_id, preserve_boot_volume=preserve_boot_volume
         )
-        return "已下发终止指令"
+        return "已下发终止指令" + ("（保留启动盘）" if preserve_boot_volume else "")
+
+    # ---------- 实例其它操作 ----------
+    def rename_instance(self, instance_id: str, new_name: str) -> str:
+        self.compute.update_instance(
+            instance_id,
+            oci.core.models.UpdateInstanceDetails(display_name=new_name))
+        return f"已重命名为 {new_name}"
+
+    def resize_instance(self, instance_id: str, ocpus: float, memory_gb: float) -> str:
+        """改弹性规格的 OCPU/内存（A1.Flex / E*.Flex）。固定规格不支持。"""
+        self.compute.update_instance(
+            instance_id,
+            oci.core.models.UpdateInstanceDetails(
+                shape_config=oci.core.models.UpdateInstanceShapeConfigDetails(
+                    ocpus=ocpus, memory_in_gbs=memory_gb)))
+        return f"已下发升降级：{ocpus} OCPU / {memory_gb}GB（重启后生效）"
+
+    def get_boot_volume(self, instance_id: str) -> Dict:
+        inst = self.compute.get_instance(instance_id).data
+        bv = self._get_boot_volume_brief(instance_id, inst.availability_domain)
+        if not bv:
+            raise RuntimeError("找不到启动盘")
+        return bv
+
+    def resize_boot_volume(self, instance_id: str, size_gb: int = None,
+                           vpu: int = None) -> str:
+        """扩容启动盘 / 调整性能 VPU。容量只能增不能减。"""
+        bv = self.get_boot_volume(instance_id)
+        details = {}
+        if size_gb:
+            details["size_in_gbs"] = int(size_gb)
+        if vpu is not None:
+            details["vpus_per_gb"] = int(vpu)
+        self.bs.update_boot_volume(
+            bv["id"], oci.core.models.UpdateBootVolumeDetails(**details))
+        return "已下发启动盘调整（扩容后需在系统内扩展分区）"
+
+    def ssh_info(self, instance_id: str) -> Dict:
+        """给出 SSH 连接建议（用户名按镜像猜，OCI 常见 opc/ubuntu）。"""
+        ip = self._get_instance_public_ip(instance_id)
+        return {"ip": ip, "users": ["ubuntu", "opc", "root"]}
 
     # ---------- 换 IP ----------
     def _get_primary_vnic_and_private_ip(self, instance_id: str):
@@ -264,6 +321,26 @@ class OciManager:
                 self._tenancy_name = self.account.tenancy[-12:]
         return self._tenancy_name
 
+    def home_region(self) -> str:
+        """租户 home region；Usage API 必须打这个区域。"""
+        if self._home_region is None:
+            try:
+                subs = self.identity.list_region_subscriptions(self.account.tenancy).data
+                home = next((s.region_name for s in subs if s.is_home_region), None)
+                self._home_region = home or self.account.region
+            except Exception as e:
+                log.warning("取 home region 失败: %s", e)
+                self._home_region = self.account.region
+        return self._home_region
+
+    @property
+    def usage(self):
+        if self._usage is None:
+            cfg = dict(self.config)
+            cfg["region"] = self.home_region()
+            self._usage = oci.usage_api.UsageapiClient(cfg)
+        return self._usage
+
     @staticmethod
     def _month_starts(months: int) -> tuple:
         """返回 (起始月初, 当前时刻) 的 UTC datetime。"""
@@ -375,21 +452,26 @@ class OciManager:
 
     def account_overview(self, months: int = 3) -> Dict:
         """聚合一个账号的概览数据，单项失败不影响其他项。"""
-        def safe(fn, default):
+        errs = {}
+
+        def safe(fn, default, key=None):
             try:
                 return fn()
             except Exception as e:
                 log.warning("%s overview 子项失败: %s", self.account.name, e)
+                if key:
+                    errs[key] = str(e)[:120]
                 return default
 
         return {
             "account": self.account.name,
             "region": self.account.region,
             "tenancy_name": safe(self.tenancy_name, self.account.tenancy[-12:]),
-            "cost": safe(lambda: self.monthly_cost(months), []),
-            "traffic": safe(lambda: self.monthly_traffic(months), []),
+            "cost": safe(lambda: self.monthly_cost(months), [], "cost"),
+            "traffic": safe(lambda: self.monthly_traffic(months), [], "traffic"),
             "quotas": safe(self.quotas, {"compute": [], "block_storage": []}),
             "subscription": safe(self.subscription_info, {"available": False}),
+            "errors": errs,
         }
 
     # ====================================================================

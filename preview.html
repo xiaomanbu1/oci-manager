@@ -98,6 +98,8 @@
     overflow:hidden;text-overflow:ellipsis}
   .kv .v.ip{color:var(--cyan)}
   .acts{display:flex;flex-wrap:wrap;gap:7px}
+  .acts.grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:7px}
+  .acts.grid3 .btn{justify-content:center;padding:7px 6px}
 
   /* 表单 */
   .form{background:linear-gradient(180deg,var(--panel),#12151c);border:1px solid var(--line);
@@ -132,7 +134,10 @@
   .ov-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:16px}
   .ov-card{position:relative;background:linear-gradient(180deg,var(--panel),#12151c);
     border:1px solid var(--line);border-radius:13px;padding:17px 18px 16px;
-    box-shadow:var(--shadow);overflow:hidden}
+    box-shadow:var(--shadow);overflow:hidden;max-height:340px;overflow-y:auto}
+  .ov-card::-webkit-scrollbar{width:7px}
+  .ov-card h4{position:sticky;top:-17px;z-index:1;margin:-17px -18px 12px;padding:15px 18px 9px;
+    background:var(--panel)}
   .ov-card::before{content:'';position:absolute;top:0;left:0;right:0;height:2px;
     background:var(--cat,var(--amber));opacity:.85}
   .ov-card.c-cost{--cat:var(--green)} .ov-card.c-traf{--cat:var(--blue)}
@@ -357,43 +362,63 @@
 
 <div id="toast"></div>
 
+<!-- 升降级 modal -->
+<div class="modal-bg" id="resizeModal">
+  <div class="modal">
+    <h3>升降级（弹性规格）</h3>
+    <div class="hint" style="color:var(--muted);font-size:12.5px;margin-bottom:14px">仅 A1.Flex / E*.Flex 支持。调整后需重启生效。</div>
+    <div class="row">
+      <div class="field"><label>OCPU</label><input id="rs_ocpu" type="number" step="1"></div>
+      <div class="field"><label>内存 GB</label><input id="rs_mem" type="number" step="1"></div>
+    </div>
+    <div class="actions">
+      <button class="btn sm" onclick="closeModal('resizeModal')">取消</button>
+      <button class="btn primary sm" onclick="submitResize()">确认</button>
+    </div>
+  </div>
+</div>
+
+<!-- 启动盘 modal -->
+<div class="modal-bg" id="bootModal">
+  <div class="modal">
+    <h3>启动盘</h3>
+    <div class="hint" style="color:var(--muted);font-size:12.5px;margin-bottom:6px" id="bv_info">—</div>
+    <div class="hint" style="color:var(--muted);font-size:12px;margin-bottom:14px">容量只能增不能减；扩容后需在系统内扩展分区。VPU 越高性能越好（10=均衡，免费档常为 10）。</div>
+    <div class="row">
+      <div class="field"><label>容量 GB</label><input id="bv_size" type="number" step="1"></div>
+      <div class="field"><label>VPU/GB</label><input id="bv_vpu" type="number" step="10"></div>
+    </div>
+    <div class="actions">
+      <button class="btn sm" onclick="closeModal('bootModal')">取消</button>
+      <button class="btn primary sm" onclick="submitBoot()">确认</button>
+    </div>
+  </div>
+</div>
+
+<!-- SSH modal -->
+<div class="modal-bg" id="sshModal">
+  <div class="modal">
+    <h3>SSH 连接</h3>
+    <div id="ssh_body">—</div>
+    <div class="actions"><button class="btn primary sm" onclick="closeModal('sshModal')">完成</button></div>
+  </div>
+</div>
 
 <script>
-const OV={'tokyo-main':{account:'tokyo-main',region:'ap-tokyo-1',
-   cost:[{month:'2026-04',amount:59.10,currency:'USD'},{month:'2026-05',amount:230.93,currency:'USD'}],
-   traffic:[{month:'2026-04',gb:0.29},{month:'2026-05',gb:0.71},{month:'2026-06',gb:0.32}],
-   subscription:{available:true,service_name:'FREE_AND_TRIAL',status:'EXPIRED',start:'2026-04-24',end:'2026-05-23'},
-   quotas:{compute:[{name:'vm-standard-a1-core-count',value:4},{name:'vm-standard-a1-memory-count',value:24},
-     {name:'standard-a2-core-count',value:8},{name:'standard-a2-memory-count',value:24}],
-     block_storage:[{name:'backup-count',value:5},{name:'free-backup-count',value:5},
-       {name:'total-free-storage-gb',value:200},{name:'total-storage-gb',value:200},{name:'volume-count',value:10000}]}}};
-const PROFILES={groups:[{region:'ap-tokyo-1',accounts:[
-    {name:'tokyo-main',ok:true,tenancy_name:'mytenancy-tk',user:'ocid1.user..aaa',region:'ap-tokyo-1'},
-    {name:'osaka-2',ok:true,tenancy_name:'mytenancy-os',user:'ocid1.user..bbb',region:'ap-tokyo-1'}]},
-  {region:'ap-seoul-1',accounts:[{name:'seoul-arm',ok:true,tenancy_name:'mytenancy-se',user:'ocid1.user..ccc',region:'ap-seoul-1'}]}]};
-const CFG_ACCTS={accounts:[
-  {name:'tokyo-main',region:'ap-tokyo-1',tenancy:'..exampletenancy',ok:true},
-  {name:'osaka-2',region:'ap-tokyo-1',tenancy:'..exampletenanc2',ok:true},
-  {name:'seoul-arm',region:'ap-seoul-1',tenancy:'..exampletenanc3',ok:true},
-  {name:'israel-old',region:'il-jerusalem-1',tenancy:'..exampletenanc4',ok:false,error:'NotAuthenticated: fingerprint mismatch'}]};
-const USERS={'tokyo-main':[{id:'u1',name:'ulenpoim03@outlook.com',email:'ulenpoim03@outlook.com',state:'ACTIVE',groups:['Administrators'],mfa:false,time_created:'2026-04-24T04:17:32.848Z'}]};
-const MOCK={'/api/accounts':{accounts:['tokyo-main','osaka-2','seoul-arm']},
-  '/api/overview':{overview:[{account:'tokyo-main',total:3,running:2},{account:'osaka-2',total:1,running:0},{account:'seoul-arm',total:2,running:2}]},
-  '/api/profiles':PROFILES,'/api/config/accounts':CFG_ACCTS,
-  '/api/jobs':{jobs:[]}};
-const MOCK_INST={'tokyo-main':[{id:'a',name:'web-tokyo-01',state:'RUNNING',shape:'VM.Standard.E4.Flex',ocpus:2,memory_gb:16,region:'ap-tokyo-1',public_ip:'140.83.55.12'}]};
-window.fetch=async(path,opt)=>{
-  await new Promise(r=>setTimeout(r,130));let data={};
-  if(path.startsWith('/api/instances')){const a=new URLSearchParams(path.split('?')[1]).get('account');data={instances:MOCK_INST[a]||[]};}
-  else if(path.startsWith('/api/account_overview')){const a=new URLSearchParams(path.split('?')[1]).get('account');data=OV[a]||OV['tokyo-main'];}
-  else if(path.startsWith('/api/users')&&!path.includes('clear')){const a=new URLSearchParams(path.split('?')[1]).get('account');data={users:USERS[a]||[]};}
-  else if(path==='/api/config/oci')data={ok:true,added:['tokyo-main','seoul-arm'],skipped:[],init_errors:[]};
-  else if(MOCK[path])data=MOCK[path];
-  else data={ok:true,msg:'（预览）已模拟'};
-  return {status:200,ok:true,json:async()=>data};
-};
-</script>
-<script>
+const OV={'z':{account:'zuneaup038阿什本',region:'us-ashburn-1',
+  errors:{cost:"{'target_service': 'usageapi', 'status': 404, 'code': 'NotAuthorizedOrNotFound'}",
+          traffic:"{'target_service': 'usageapi', 'status': 404, 'code': 'NotAuthorizedOrNotFound'}"},
+  cost:[],traffic:[],subscription:{available:true,service_name:'CLOUDCM',status:'ACTIVE',start:null,end:null},
+  quotas:{compute:[{"name": "dense-a4-ax-core-reserved-count", "value": 3000000000}, {"name": "dense-io-a2-core-reserved-count", "value": 3000000000}, {"name": "dense-io-e4-memory-reserved-count", "value": 3000000000}, {"name": "vm-standard-a1-core-count", "value": 4}, {"name": "vm-standard-a1-memory-count", "value": 24}, {"name": "standard-a2-core-count", "value": 8}, {"name": "bm-gpu2-2-count", "value": 0}],block_storage:[{"name": "total-storage-gb", "value": 92160}, {"name": "backup-count", "value": 100000}, {"name": "volume-count", "value": 30000}, {"name": "total-free-storage-gb", "value": 600}, {"name": "free-backup-count", "value": 5}]}}};
+const PROFILES={groups:[{region:'us-ashburn-1',accounts:[{name:'zuneaup038阿什本',ok:true,tenancy_name:'zuneaup038',user:'x',region:'us-ashburn-1'}]}]};
+const MOCK={'/api/accounts':{accounts:['zuneaup038阿什本']},'/api/overview':{overview:[{account:'z',total:2,running:1}]},
+  '/api/profiles':PROFILES,'/api/config/accounts':{accounts:[]},'/api/jobs':{jobs:[]}};
+window.fetch=async(path)=>{await new Promise(r=>setTimeout(r,100));let data={};
+  if(path.startsWith('/api/account_overview'))data=OV['z'];
+  else if(path.startsWith('/api/instances'))data={instances:[]};
+  else if(MOCK[path])data=MOCK[path];else data={ok:true};
+  return {status:200,ok:true,json:async()=>data};};
+</script><script>
 const AUTH_REQUIRED = false;
 let CUR_ACC = null;
 const CHEV = '<svg class="chev" viewBox="0 0 16 16" fill="none"><path d="M6 4l4 4-4 4" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>';
@@ -458,13 +483,21 @@ async function loadAccountOverview(){
   try{ box.innerHTML=renderOv(await api('/api/account_overview?account='+encodeURIComponent(CUR_ACC)));}
   catch(e){ box.innerHTML=`<div class="empty box">加载失败：${e.message}</div>`; }
 }
+function errMsg(s){
+  // 从 OCI 报错串里抽 status + code，截短显示
+  const st=(s.match(/'status':\s*(\d+)/)||[])[1];
+  const code=(s.match(/'code':\s*'([^']+)'/)||[])[1];
+  if(st||code) return `接口报错 ${st||''} ${code||''}`.trim();
+  return '接口报错：'+s.slice(0,50);
+}
 function renderOv(d){
+  const er=d.errors||{};
   const cost=(d.cost||[]).length
     ? d.cost.map(c=>`<div class="ov-row"><span class="lab">${c.month}</span><span class="num money">${c.currency} ${c.amount.toFixed(2)}</span></div>`).join('')
-    : '<div class="ov-row small"><span class="lab">无数据 / 接口未开通</span></div>';
+    : `<div class="ov-row small"><span class="lab">${er.cost?errMsg(er.cost):'本月无消费记录（免费档通常为 0）'}</span></div>`;
   const traf=(d.traffic||[]).length
     ? d.traffic.map(t=>`<div class="ov-row"><span class="lab">${t.month}</span><span class="num gb">${t.gb.toFixed(2)} GB</span></div>`).join('')
-    : '<div class="ov-row small"><span class="lab">无数据</span></div>';
+    : `<div class="ov-row small"><span class="lab">${er.traffic?errMsg(er.traffic):'暂无流量计费记录'}</span></div>`;
   const s=d.subscription||{};
   let sub;
   if(s.available){
@@ -479,9 +512,10 @@ function renderOv(d){
       <div class="ov-row small"><span class="lab">${s.note||'公共接口不提供试用订阅明细'}</span></div>`;
   }
   const q=d.quotas||{};
-  const pick=(arr,keys)=>(arr||[]).filter(x=>keys.some(k=>x.name.includes(k)));
-  const comp=pick(q.compute,['a1-core','a1-memory','standard','e3','e4','e5','gpu']).slice(0,8);
-  const bs=pick(q.block_storage,['backup','storage','volume']).slice(0,8);
+  // 滤掉内部预留(reserved)和巨大哨兵值(>1亿)，按值降序，有用的排前面
+  const clean=arr=>(arr||[]).filter(x=>!/reserved/i.test(x.name) && x.value<100000000)
+                            .sort((x,y)=>y.value-x.value);
+  const comp=clean(q.compute), bs=clean(q.block_storage);
   const qrow=x=>`<div class="ov-row small"><span class="lab">${x.name}</span><span class="num">${x.value}</span></div>`;
   const quota=`<div class="ov-sub">实例配额</div>`
     +(comp.length?comp.map(qrow).join(''):'<div class="ov-row small"><span class="lab">—</span></div>')
@@ -542,29 +576,42 @@ function gotoOv(acc){
 /* ====== 实例 ====== */
 const STATE_CLS={RUNNING:'b-run',STOPPED:'b-stop'};
 const badgeCls=s=>STATE_CLS[s]||'b-busy';
+let INSTANCES={};
 async function loadInstances(){
   const grid=document.getElementById('instGrid');
   grid.innerHTML='<div class="empty">加载中…</div>';
   try{
     const {instances}=await api('/api/instances?account='+encodeURIComponent(CUR_ACC));
+    INSTANCES={}; instances.forEach(x=>INSTANCES[x.id]=x);
     grid.innerHTML=instances.length?instances.map(card).join(''):'<div class="empty">该账号下没有实例</div>';
   }catch(e){grid.innerHTML=`<div class="empty">加载失败：${e.message}</div>`;}
 }
 function card(x){
   const spec=x.ocpus?`${x.ocpus} OCPU / ${x.memory_gb}GB`:x.shape;
+  const boot=x.boot_gb?`${x.boot_gb} GB · VPU ${x.boot_vpu}`:'—';
+  const running=x.state==='RUNNING';
   return `<div class="card">
     <div class="top"><span class="name" title="${x.name}">${x.name}</span>
       <span class="badge ${badgeCls(x.state)}">${x.state}</span></div>
     <div class="kv">
       <span class="k">公网IP</span><span class="v ip">${x.public_ip||'—'}</span>
+      <span class="k">Shape</span><span class="v">${x.shape}</span>
       <span class="k">规格</span><span class="v">${spec}</span>
-      <span class="k">区域</span><span class="v">${x.region}</span></div>
-    <div class="acts">
-      <button class="btn sm" ${x.state==='RUNNING'?'disabled':''} onclick="act('${x.id}','START')">开机</button>
-      <button class="btn sm" ${x.state==='STOPPED'?'disabled':''} onclick="act('${x.id}','SOFTSTOP')">关机</button>
+      <span class="k">启动盘</span><span class="v">${boot}</span>
+      <span class="k">创建</span><span class="v">${(x.time_created||'').slice(0,10)}</span></div>
+    <div class="acts grid3">
+      <button class="btn sm" onclick="sshInfo('${x.id}')">SSH</button>
+      <button class="btn sm" ${running?'':'disabled'} onclick="act('${x.id}','SOFTSTOP')">关机</button>
+      <button class="btn sm" ${running?'disabled':''} onclick="act('${x.id}','START')">开机</button>
       <button class="btn sm" onclick="act('${x.id}','SOFTRESET')">重启</button>
-      <button class="btn sm" onclick="chip('${x.id}')">换IP</button>
-      <button class="btn sm danger" onclick="term('${x.id}','${x.name}')">终止</button></div></div>`;
+      <button class="btn sm" onclick="renameInst('${x.id}')">重命名</button>
+      <button class="btn sm" onclick="resizeInst('${x.id}')">升降级</button>
+      <button class="btn sm" onclick="chip('${x.id}')">IP管理</button>
+      <button class="btn sm" onclick="bootVol('${x.id}')">启动盘</button>
+      <button class="btn sm" onclick="act('${x.id}','RESET')">修复</button>
+      <button class="btn sm danger" onclick="term('${x.id}',false)">删除</button>
+      <button class="btn sm danger" onclick="term('${x.id}',true)">删除留盘</button>
+    </div></div>`;
 }
 async function act(id,action){
   try{const d=await api('/api/action',{method:'POST',body:JSON.stringify({account:CUR_ACC,instance_id:id,action})});
@@ -577,11 +624,69 @@ async function chip(id){
     toast(d.msg,'ok');setTimeout(loadInstances,1500);
   }catch(e){toast(e.message,'err');}
 }
-async function term(id,name){
-  if(!confirm(`确认终止实例「${name}」？此操作不可恢复`))return;
-  try{const d=await api('/api/terminate',{method:'POST',body:JSON.stringify({account:CUR_ACC,instance_id:id})});
+async function term(id,preserve){
+  const x=INSTANCES[id]||{};
+  const tip=preserve?`终止「${x.name}」但保留启动盘？`:`终止「${x.name}」？启动盘也会删除，不可恢复`;
+  if(!confirm(tip))return;
+  try{const d=await api('/api/terminate',{method:'POST',
+    body:JSON.stringify({account:CUR_ACC,instance_id:id,action:preserve?'preserve':''})});
     toast(d.msg,'ok');setTimeout(loadInstances,1500);
   }catch(e){toast(e.message,'err');}
+}
+async function renameInst(id){
+  const x=INSTANCES[id]||{};
+  const name=prompt('新实例名：',x.name||'');
+  if(!name||name===x.name)return;
+  try{const d=await api('/api/instance/rename',{method:'POST',
+    body:JSON.stringify({account:CUR_ACC,instance_id:id,name})});
+    toast(d.msg,'ok');setTimeout(loadInstances,1200);
+  }catch(e){toast(e.message,'err');}
+}
+let _curId=null;
+function resizeInst(id){
+  const x=INSTANCES[id]||{};
+  _curId=id;
+  document.getElementById('rs_ocpu').value=x.ocpus||1;
+  document.getElementById('rs_mem').value=x.memory_gb||6;
+  document.getElementById('resizeModal').classList.add('show');
+}
+async function submitResize(){
+  try{const d=await api('/api/instance/resize',{method:'POST',body:JSON.stringify({
+      account:CUR_ACC,instance_id:_curId,
+      ocpus:parseFloat(document.getElementById('rs_ocpu').value),
+      memory_gb:parseFloat(document.getElementById('rs_mem').value)})});
+    closeModal('resizeModal');toast(d.msg,'ok');setTimeout(loadInstances,1500);
+  }catch(e){toast(e.message,'err');}
+}
+async function bootVol(id){
+  _curId=id;
+  const m=document.getElementById('bootModal');
+  document.getElementById('bv_info').textContent='读取中…';
+  m.classList.add('show');
+  try{const d=await api('/api/instance/boot_volume?account='+encodeURIComponent(CUR_ACC)+'&instance_id='+id);
+    document.getElementById('bv_info').textContent=`当前：${d.size_gb} GB · VPU ${d.vpu}`;
+    document.getElementById('bv_size').value=d.size_gb;
+    document.getElementById('bv_vpu').value=d.vpu;
+  }catch(e){document.getElementById('bv_info').textContent='读取失败: '+e.message;}
+}
+async function submitBoot(){
+  try{const d=await api('/api/instance/resize_boot',{method:'POST',body:JSON.stringify({
+      account:CUR_ACC,instance_id:_curId,
+      size_gb:parseInt(document.getElementById('bv_size').value),
+      vpu:parseInt(document.getElementById('bv_vpu').value)})});
+    closeModal('bootModal');toast(d.msg,'ok');setTimeout(loadInstances,1500);
+  }catch(e){toast(e.message,'err');}
+}
+async function sshInfo(id){
+  const m=document.getElementById('sshModal');
+  document.getElementById('ssh_body').textContent='读取中…';
+  m.classList.add('show');
+  try{const d=await api('/api/instance/ssh?account='+encodeURIComponent(CUR_ACC)+'&instance_id='+id);
+    if(!d.ip){document.getElementById('ssh_body').innerHTML='<span style="color:var(--muted)">该实例没有公网 IP</span>';return;}
+    document.getElementById('ssh_body').innerHTML=
+      `<div style="color:var(--muted);font-size:12px;margin-bottom:8px">按镜像系统选对应用户名（Ubuntu→ubuntu，Oracle Linux→opc）：</div>`
+      +d.users.map(u=>`<div class="pwbox"><span>ssh ${u}@${d.ip}</span><button class="btn sm" onclick="navigator.clipboard.writeText('ssh ${u}@${d.ip}').then(()=>toast('已复制','ok'))">复制</button></div>`).join('');
+  }catch(e){document.getElementById('ssh_body').textContent='失败: '+e.message;}
 }
 
 /* ====== 用户管理 ====== */

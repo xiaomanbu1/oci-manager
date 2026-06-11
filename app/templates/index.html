@@ -1,0 +1,629 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>OCI Manager</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --ink:#0b0d12; --ink-2:#080a0e; --panel:#14171e; --panel-2:#1a1e27;
+    --panel-hi:#20242f; --line:#262c38; --line-2:#333b49;
+    --text:#e4e8ef; --muted:#8b94a3; --dim:#5c6472;
+    --amber:#f5a623; --green:#45c97a; --red:#f0563f; --yellow:#e6b84a;
+    --blue:#5aa9f0; --cyan:#4fd1c5; --violet:#a78bfa;
+    --mono:'IBM Plex Mono',ui-monospace,SFMono-Regular,Menlo,monospace;
+    --sans:'Inter',system-ui,-apple-system,'PingFang SC','Microsoft YaHei',sans-serif;
+    --shadow:0 1px 0 rgba(255,255,255,.02) inset, 0 8px 24px -12px rgba(0,0,0,.6);
+  }
+  *{box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  body{margin:0;background:var(--ink);color:var(--text);font-family:var(--sans);
+    font-size:14px;line-height:1.55;-webkit-font-smoothing:antialiased;
+    background-image:radial-gradient(900px 380px at 75% -120px, rgba(245,166,35,.07), transparent 70%);}
+  a{color:var(--amber);text-decoration:none}
+  button{font-family:inherit;cursor:pointer}
+  .mono{font-family:var(--mono)}
+  ::-webkit-scrollbar{width:10px;height:10px}
+  ::-webkit-scrollbar-thumb{background:#262c38;border-radius:6px;border:2px solid var(--ink)}
+  ::-webkit-scrollbar-thumb:hover{background:#333b49}
+
+  /* 顶栏 */
+  header{display:flex;align-items:center;gap:20px;padding:15px 24px;
+    border-bottom:1px solid var(--line);background:rgba(18,21,28,.72);
+    backdrop-filter:blur(12px);position:sticky;top:0;z-index:10}
+  .logo{font-family:var(--mono);font-weight:600;font-size:15px;letter-spacing:.4px;
+    display:flex;align-items:center;gap:10px}
+  .logo .dot{width:9px;height:9px;border-radius:3px;
+    background:linear-gradient(135deg,#ffce6e,var(--amber));
+    box-shadow:0 0 12px var(--amber),0 0 0 1px rgba(245,166,35,.3)}
+  .logo small{color:var(--dim);font-weight:400;letter-spacing:2.5px;font-size:9.5px}
+  header .stats{margin-left:auto;display:flex;gap:7px;align-items:center;
+    font-family:var(--mono);font-size:12px;color:var(--muted)}
+  header .stats .chip{background:var(--panel-2);border:1px solid var(--line);
+    padding:5px 11px;border-radius:7px}
+  header .stats b{color:var(--green);font-weight:600}
+  header .stats .s-stop{color:var(--red)}
+  select{background:var(--panel-2);color:var(--text);border:1px solid var(--line-2);
+    border-radius:8px;padding:8px 12px;font-family:var(--mono);font-size:13px;outline:none;
+    transition:border-color .15s}
+  select:hover{border-color:var(--amber)} select:focus{border-color:var(--amber)}
+
+  /* tab */
+  nav.tabs{display:flex;gap:4px;padding:0 24px;border-bottom:1px solid var(--line);
+    background:rgba(18,21,28,.5);position:sticky;top:57px;z-index:9;backdrop-filter:blur(12px)}
+  nav.tabs button{background:none;border:none;color:var(--muted);padding:13px 16px;
+    font-size:13px;font-weight:500;border-bottom:2px solid transparent;margin-bottom:-1px;
+    transition:color .15s;position:relative}
+  nav.tabs button.on{color:var(--amber)}
+  nav.tabs button.on::after{content:'';position:absolute;left:14px;right:14px;bottom:-1px;height:2px;
+    background:var(--amber);border-radius:2px;box-shadow:0 0 10px var(--amber)}
+  nav.tabs button:hover{color:var(--text)}
+
+  main{padding:26px 24px 60px;max-width:1320px;margin:0 auto}
+  .view{display:none;animation:fade .25s ease} .view.on{display:block}
+  @keyframes fade{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}
+
+  .toolbar{display:flex;gap:10px;align-items:center;margin-bottom:18px;flex-wrap:wrap}
+  .toolbar .sp{flex:1}
+
+  /* 通用按钮 */
+  .btn{background:var(--panel-2);border:1px solid var(--line-2);color:var(--text);
+    border-radius:8px;padding:7px 13px;font-size:12.5px;font-weight:500;
+    transition:.14s;display:inline-flex;align-items:center;gap:6px}
+  .btn:hover{border-color:var(--amber);color:var(--amber);background:var(--panel-hi)}
+  .btn.danger:hover{border-color:var(--red);color:var(--red)}
+  .btn.primary{background:linear-gradient(135deg,#ffc24d,var(--amber));color:#231803;
+    border-color:transparent;font-weight:600;box-shadow:0 4px 14px -6px var(--amber)}
+  .btn.primary:hover{filter:brightness(1.06);color:#231803}
+  .btn:disabled{opacity:.38;cursor:not-allowed;border-color:var(--line)}
+  .btn:disabled:hover{color:var(--text);background:var(--panel-2)}
+  .btn.sm{padding:5px 11px;font-size:12px}
+
+  /* 实例卡片 */
+  .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(340px,1fr));gap:16px}
+  .card{background:linear-gradient(180deg,var(--panel),#12151c);border:1px solid var(--line);
+    border-radius:13px;padding:16px 17px;box-shadow:var(--shadow);transition:.18s}
+  .card:hover{border-color:var(--line-2);transform:translateY(-2px)}
+  .card .top{display:flex;align-items:center;gap:9px;margin-bottom:13px}
+  .card .name{font-weight:600;font-size:14.5px;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .badge{font-family:var(--mono);font-size:10px;font-weight:600;padding:3px 8px;border-radius:5px;
+    text-transform:uppercase;letter-spacing:.6px}
+  .b-run{background:rgba(69,201,122,.14);color:var(--green);box-shadow:0 0 0 1px rgba(69,201,122,.2) inset}
+  .b-stop{background:rgba(240,86,63,.14);color:var(--red);box-shadow:0 0 0 1px rgba(240,86,63,.2) inset}
+  .b-busy{background:rgba(230,184,74,.14);color:var(--yellow);box-shadow:0 0 0 1px rgba(230,184,74,.2) inset}
+  .kv{display:grid;grid-template-columns:60px 1fr;gap:5px 10px;font-size:12.5px;margin-bottom:14px}
+  .kv .k{color:var(--dim)} .kv .v{font-family:var(--mono);color:var(--text);
+    overflow:hidden;text-overflow:ellipsis}
+  .kv .v.ip{color:var(--cyan)}
+  .acts{display:flex;flex-wrap:wrap;gap:7px}
+
+  /* 表单 */
+  .form{background:linear-gradient(180deg,var(--panel),#12151c);border:1px solid var(--line);
+    border-radius:13px;padding:22px;max-width:640px;box-shadow:var(--shadow)}
+  .form h3{margin:0 0 5px;font-size:16px;font-weight:700}
+  .form .hint{color:var(--muted);font-size:12.5px;margin-bottom:20px;line-height:1.6}
+  .field{margin-bottom:15px} .field label{display:block;font-size:12px;color:var(--muted);
+    margin-bottom:6px;font-weight:500}
+  .field input,.field select{width:100%;background:var(--ink-2);border:1px solid var(--line);
+    color:var(--text);border-radius:8px;padding:10px 12px;font-family:var(--mono);font-size:13px;outline:none;
+    transition:border-color .15s}
+  .field input:focus,.field select:focus{border-color:var(--amber)}
+  .row{display:grid;grid-template-columns:1fr 1fr;gap:13px}
+
+  /* 概览统计 */
+  .sec-title{font-size:16px;margin:30px 0 16px;font-weight:700;display:flex;align-items:center;gap:9px}
+  .sec-title::before{content:'';width:4px;height:16px;border-radius:3px;
+    background:linear-gradient(var(--amber),#c47f12)}
+  .sec-title .sub{color:var(--dim);font-weight:400;font-size:12px}
+  .ov-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:16px}
+  .ov-card{position:relative;background:linear-gradient(180deg,var(--panel),#12151c);
+    border:1px solid var(--line);border-radius:13px;padding:17px 18px 16px;
+    box-shadow:var(--shadow);overflow:hidden}
+  .ov-card::before{content:'';position:absolute;top:0;left:0;right:0;height:2px;
+    background:var(--cat,var(--amber));opacity:.85}
+  .ov-card.c-cost{--cat:var(--green)} .ov-card.c-traf{--cat:var(--blue)}
+  .ov-card.c-sub{--cat:var(--amber)} .ov-card.c-quota{--cat:var(--violet)}
+  .ov-card h4{margin:0 0 14px;font-size:11px;letter-spacing:1px;text-transform:uppercase;
+    color:var(--cat,var(--amber));font-weight:600;display:flex;align-items:center;gap:7px}
+  .ov-card h4 .ico{width:7px;height:7px;border-radius:2px;background:var(--cat,var(--amber));
+    box-shadow:0 0 8px var(--cat,var(--amber))}
+  .ov-row{display:flex;justify-content:space-between;gap:10px;font-size:13px;padding:5px 0;
+    font-family:var(--mono);border-bottom:1px dashed rgba(255,255,255,.04)}
+  .ov-row:last-child{border-bottom:none}
+  .ov-row .lab{color:var(--muted)} .ov-row .num{color:var(--text);font-weight:500}
+  .ov-row .num.money{color:var(--green)} .ov-row .num.gb{color:var(--blue)}
+  .ov-row.small{font-size:11.5px;padding:3px 0}
+  .ov-sub{font-size:10px;color:var(--dim);margin:9px 0 5px;letter-spacing:.5px;text-transform:uppercase}
+  .pill{display:inline-block;font-family:var(--mono);font-size:11px;padding:2px 9px;border-radius:5px;font-weight:600}
+  .pill.exp{background:rgba(240,86,63,.14);color:var(--red)}
+  .pill.act{background:rgba(69,201,122,.14);color:var(--green)}
+  .pill.na{background:rgba(139,148,163,.13);color:var(--muted)}
+
+  /* Profile 区域分组（可折叠） */
+  .region{background:linear-gradient(180deg,var(--panel),#12151c);border:1px solid var(--line);
+    border-radius:13px;margin-bottom:13px;overflow:hidden;box-shadow:var(--shadow)}
+  .region-head{display:flex;align-items:center;gap:11px;padding:13px 17px;cursor:pointer;
+    font-family:var(--mono);font-size:13px;user-select:none;transition:background .15s}
+  .region-head:hover{background:var(--panel-2)}
+  .region-head .chev{width:16px;height:16px;color:var(--dim);transition:transform .22s;flex-shrink:0}
+  .region.open .region-head .chev{transform:rotate(90deg);color:var(--amber)}
+  .region-head .flag{color:var(--amber);font-size:11px}
+  .region-head .rname{font-weight:600}
+  .region-head .rcn{color:var(--muted)}
+  .region-head .cnt{margin-left:auto;color:var(--dim);font-size:11.5px;
+    background:var(--ink-2);padding:3px 9px;border-radius:11px;border:1px solid var(--line)}
+  .region-body{max-height:0;overflow:hidden;transition:max-height .28s ease}
+  .region.open .region-body{max-height:1200px}
+  .prof-row{display:grid;grid-template-columns:1.4fr 1fr 1fr auto;gap:12px;align-items:center;
+    padding:12px 17px 12px 44px;border-top:1px solid var(--line);font-size:13px}
+  .prof-row .pname{font-weight:500} .prof-row .mono{font-family:var(--mono);color:var(--muted);font-size:12px}
+  .prof-row.bad .pname{color:var(--red)}
+  @media(max-width:600px){.prof-row{grid-template-columns:1fr auto;padding-left:44px}.prof-row .mono{display:none}}
+
+  /* 数据表（用户管理） */
+  .table-wrap{background:linear-gradient(180deg,var(--panel),#12151c);border:1px solid var(--line);
+    border-radius:13px;overflow:hidden;box-shadow:var(--shadow)}
+  table{width:100%;border-collapse:collapse;font-size:13px}
+  thead th{text-align:left;padding:13px 16px;color:var(--dim);font-weight:500;font-size:11.5px;
+    letter-spacing:.5px;text-transform:uppercase;background:var(--panel-2);border-bottom:1px solid var(--line)}
+  tbody td{padding:14px 16px;border-bottom:1px solid var(--line);vertical-align:middle}
+  tbody tr:last-child td{border-bottom:none}
+  tbody tr:hover{background:rgba(255,255,255,.015)}
+  td .uname{font-weight:500} td .mono{font-family:var(--mono);color:var(--muted);font-size:12px}
+  .grp-tag{display:inline-block;font-family:var(--mono);font-size:11px;padding:2px 8px;border-radius:5px;
+    background:rgba(167,139,250,.13);color:var(--violet);margin-right:4px}
+  .td-acts{display:flex;gap:7px;justify-content:flex-end}
+
+  .empty{text-align:center;color:var(--dim);padding:56px 20px;font-family:var(--mono);font-size:13px}
+  .empty.box{background:var(--panel);border:1px solid var(--line);border-radius:13px}
+
+  /* modal */
+  .modal-bg{position:fixed;inset:0;background:rgba(5,7,11,.7);backdrop-filter:blur(3px);
+    display:none;align-items:center;justify-content:center;z-index:60;padding:20px}
+  .modal-bg.show{display:flex}
+  .modal{background:var(--panel);border:1px solid var(--line-2);border-radius:14px;
+    padding:24px;width:420px;max-width:100%;box-shadow:0 20px 60px -20px #000}
+  .modal h3{margin:0 0 16px;font-size:16px}
+  .modal .actions{display:flex;gap:10px;justify-content:flex-end;margin-top:8px}
+  .pwbox{background:var(--ink-2);border:1px solid var(--line);border-radius:8px;padding:12px 14px;
+    font-family:var(--mono);font-size:14px;color:var(--amber);word-break:break-all;margin:6px 0 4px;
+    display:flex;align-items:center;justify-content:space-between;gap:10px}
+
+  /* toast */
+  #toast{position:fixed;bottom:26px;left:50%;transform:translateX(-50%) translateY(10px);
+    background:var(--panel-2);border:1px solid var(--line-2);border-radius:10px;padding:12px 19px;
+    font-size:13px;box-shadow:0 12px 40px rgba(0,0,0,.55);opacity:0;transition:.28s;
+    pointer-events:none;z-index:80;max-width:90vw}
+  #toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+  #toast.ok{border-color:var(--green)} #toast.err{border-color:var(--red)}
+
+  /* login */
+  #login{position:fixed;inset:0;background:var(--ink);display:flex;align-items:center;
+    justify-content:center;z-index:100;
+    background-image:radial-gradient(600px 300px at 50% 30%, rgba(245,166,35,.1), transparent 70%)}
+  #login .box{background:var(--panel);border:1px solid var(--line-2);border-radius:14px;padding:34px;width:330px;
+    box-shadow:0 20px 60px -20px #000}
+  #login h2{margin:0 0 20px;font-family:var(--mono);font-size:16px;display:flex;align-items:center;gap:9px}
+  @media(max-width:560px){header{flex-wrap:wrap;gap:11px} header .stats{width:100%;margin:0;flex-wrap:wrap}
+    nav.tabs{top:auto;position:static} .grid{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+
+<div id="login" style="display:none">
+  <div class="box">
+    <h2><span style="width:9px;height:9px;border-radius:3px;background:var(--amber);box-shadow:0 0 12px var(--amber)"></span>OCI Manager</h2>
+    <div class="field"><label>访问口令</label><input type="password" id="pw" autofocus></div>
+    <button class="btn primary" style="width:100%;justify-content:center" onclick="doLogin()">进入控制台</button>
+  </div>
+</div>
+
+<header>
+  <div class="logo"><span class="dot"></span>OCI MANAGER <small>CONSOLE</small></div>
+  <select id="accSel" onchange="onAccChange()"></select>
+  <div class="stats" id="stats"></div>
+</header>
+
+<nav class="tabs">
+  <button class="on" data-v="overview" onclick="switchTab('overview')">概览</button>
+  <button data-v="instances" onclick="switchTab('instances')">实例</button>
+  <button data-v="users" onclick="switchTab('users')">用户管理</button>
+  <button data-v="grab" onclick="switchTab('grab')">抢机</button>
+  <button data-v="jobs" onclick="switchTab('jobs')">任务</button>
+</nav>
+
+<main>
+  <!-- 概览 -->
+  <section class="view on" id="v-overview">
+    <div class="ov-grid" id="ovStats"><div class="empty box">选择账号查看概览…</div></div>
+    <h3 class="sec-title">Profile 列表 <span class="sub">按区域分组 · 点击展开</span></h3>
+    <div id="profiles"></div>
+  </section>
+
+  <!-- 实例 -->
+  <section class="view" id="v-instances">
+    <div class="toolbar">
+      <button class="btn sm" onclick="loadInstances()">⟳ 刷新</button>
+    </div>
+    <div class="grid" id="instGrid"></div>
+  </section>
+
+  <!-- 用户管理 -->
+  <section class="view" id="v-users">
+    <div class="toolbar">
+      <button class="btn primary sm" onclick="openCreateUser()">＋ 创建用户</button>
+      <button class="btn danger sm" onclick="clearAll2FA()">清除全部 2FA</button>
+      <div class="sp"></div>
+      <button class="btn sm" onclick="loadUsers()">⟳ 刷新</button>
+    </div>
+    <div class="table-wrap" id="usersTable"></div>
+  </section>
+
+  <!-- 抢机 -->
+  <section class="view" id="v-grab">
+    <div class="form">
+      <h3>抢机 / 创建实例</h3>
+      <div class="hint">容量不足会自动轮换可用域、间隔重试，直到成功或用完次数。提交后到「任务」看实时日志。</div>
+      <div class="field"><label>实例名 display_name</label><input id="g_name" value="instance-grab"></div>
+      <div class="field"><label>Subnet OCID</label><input id="g_subnet" placeholder="ocid1.subnet.oc1..."></div>
+      <div class="field"><label>Image OCID（系统镜像）</label><input id="g_image" placeholder="ocid1.image.oc1..."></div>
+      <div class="row">
+        <div class="field"><label>Shape</label><input id="g_shape" value="VM.Standard.A1.Flex"></div>
+        <div class="field"><label>启动盘 GB（可空）</label><input id="g_boot" placeholder="50"></div>
+      </div>
+      <div class="row">
+        <div class="field"><label>OCPU（弹性规格填）</label><input id="g_ocpu" value="4"></div>
+        <div class="field"><label>内存 GB（弹性规格填）</label><input id="g_mem" value="24"></div>
+      </div>
+      <div class="field"><label>SSH 公钥</label><input id="g_ssh" placeholder="ssh-rsa AAAA..."></div>
+      <div class="row">
+        <div class="field"><label>最大重试次数</label><input id="g_retries" value="200"></div>
+        <div class="field"><label>间隔秒数</label><input id="g_interval" value="60"></div>
+      </div>
+      <button class="btn primary" style="width:100%;justify-content:center;margin-top:6px" onclick="startGrab()">▶ 开始抢机</button>
+    </div>
+  </section>
+
+  <!-- 任务 -->
+  <section class="view" id="v-jobs">
+    <div id="jobsList"></div>
+  </section>
+</main>
+
+<!-- 创建用户 modal -->
+<div class="modal-bg" id="createUserModal">
+  <div class="modal">
+    <h3>创建用户</h3>
+    <div class="field"><label>用户名</label><input id="cu_name" placeholder="newuser"></div>
+    <div class="field"><label>邮箱（可空）</label><input id="cu_email" placeholder="user@example.com"></div>
+    <div class="field"><label>用户组</label><input id="cu_group" value="Administrators"></div>
+    <div class="actions">
+      <button class="btn sm" onclick="closeModal('createUserModal')">取消</button>
+      <button class="btn primary sm" onclick="submitCreateUser()">创建</button>
+    </div>
+  </div>
+</div>
+
+<!-- 密码展示 modal -->
+<div class="modal-bg" id="pwModal">
+  <div class="modal">
+    <h3>一次性控制台密码</h3>
+    <div class="hint" style="color:var(--muted);font-size:12.5px;margin-bottom:6px">请立即复制保存，此密码只显示一次。</div>
+    <div class="pwbox"><span id="pwValue"></span><button class="btn sm" onclick="copyPw()">复制</button></div>
+    <div class="actions"><button class="btn primary sm" onclick="closeModal('pwModal')">完成</button></div>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<script>
+const AUTH_REQUIRED = __AUTH_REQUIRED__;
+let CUR_ACC = null;
+const CHEV = '<svg class="chev" viewBox="0 0 16 16" fill="none"><path d="M6 4l4 4-4 4" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+
+function toast(msg, type){const t=document.getElementById('toast');
+  t.textContent=msg;t.className='show '+(type||'');setTimeout(()=>t.className='',2800);}
+async function api(path, opt){
+  const r = await fetch(path, Object.assign({headers:{'Content-Type':'application/json'}}, opt));
+  if(r.status===401){showLogin();throw new Error('未登录');}
+  const d = await r.json().catch(()=>({}));
+  if(!r.ok) throw new Error(d.detail||d.error||('HTTP '+r.status));
+  return d;
+}
+function showLogin(){document.getElementById('login').style.display='flex';}
+async function doLogin(){
+  try{ await api('/api/login',{method:'POST',body:JSON.stringify({password:document.getElementById('pw').value})});
+    document.getElementById('login').style.display='none'; init();
+  }catch(e){toast('口令错误','err');}
+}
+function closeModal(id){document.getElementById(id).classList.remove('show');}
+
+function switchTab(v){
+  document.querySelectorAll('nav.tabs button').forEach(b=>b.classList.toggle('on',b.dataset.v===v));
+  document.querySelectorAll('.view').forEach(s=>s.classList.toggle('on',s.id==='v-'+v));
+  if(v==='jobs') loadJobs();
+  if(v==='overview'){ loadAccountOverview(); loadProfiles(); }
+  if(v==='instances') loadInstances();
+  if(v==='users') loadUsers();
+}
+
+async function init(){
+  try{
+    const {accounts} = await api('/api/accounts');
+    document.getElementById('accSel').innerHTML = accounts.map(a=>`<option>${a}</option>`).join('');
+    CUR_ACC = accounts[0];
+    loadHeaderStats(); loadProfiles();
+    if(CUR_ACC) loadAccountOverview();
+  }catch(e){ if(e.message!=='未登录') toast(e.message,'err'); }
+}
+async function loadHeaderStats(){
+  try{ const {overview}=await api('/api/overview');
+    const tot=overview.reduce((s,o)=>s+(o.total||0),0);
+    const run=overview.reduce((s,o)=>s+(o.running||0),0);
+    document.getElementById('stats').innerHTML=
+      `<span class="chip">账号 ${overview.length}</span><span class="chip">实例 ${tot}</span>`+
+      `<span class="chip">运行 <b>${run}</b></span><span class="chip">停止 <span class="s-stop">${tot-run}</span></span>`;
+  }catch(e){}
+}
+function onAccChange(){
+  CUR_ACC=document.getElementById('accSel').value;
+  const cur=document.querySelector('nav.tabs button.on').dataset.v;
+  if(cur==='overview') loadAccountOverview();
+  else if(cur==='instances') loadInstances();
+  else if(cur==='users') loadUsers();
+}
+
+/* ====== 概览 ====== */
+async function loadAccountOverview(){
+  const box=document.getElementById('ovStats');
+  box.innerHTML='<div class="empty box">加载概览中…</div>';
+  try{ box.innerHTML=renderOv(await api('/api/account_overview?account='+encodeURIComponent(CUR_ACC)));}
+  catch(e){ box.innerHTML=`<div class="empty box">加载失败：${e.message}</div>`; }
+}
+function renderOv(d){
+  const cost=(d.cost||[]).length
+    ? d.cost.map(c=>`<div class="ov-row"><span class="lab">${c.month}</span><span class="num money">${c.currency} ${c.amount.toFixed(2)}</span></div>`).join('')
+    : '<div class="ov-row small"><span class="lab">无数据 / 接口未开通</span></div>';
+  const traf=(d.traffic||[]).length
+    ? d.traffic.map(t=>`<div class="ov-row"><span class="lab">${t.month}</span><span class="num gb">${t.gb.toFixed(2)} GB</span></div>`).join('')
+    : '<div class="ov-row small"><span class="lab">无数据</span></div>';
+  const s=d.subscription||{};
+  let sub;
+  if(s.available){
+    const st=(s.status||'').toUpperCase();
+    const cls=st.includes('EXPIR')?'exp':(st.includes('ACTIVE')?'act':'na');
+    sub=`<div class="ov-row"><span class="lab">服务</span><span class="num">${s.service_name||'—'}</span></div>
+      <div class="ov-row"><span class="lab">状态</span><span class="pill ${cls}">${s.status||'—'}</span></div>
+      <div class="ov-row small"><span class="lab">开始</span><span class="num">${(s.start||'—').toString().slice(0,10)}</span></div>
+      <div class="ov-row small"><span class="lab">结束</span><span class="num">${(s.end||'—').toString().slice(0,10)}</span></div>`;
+  }else{
+    sub=`<div class="ov-row"><span class="lab">状态</span><span class="pill na">不可用</span></div>
+      <div class="ov-row small"><span class="lab">${s.note||'公共接口不提供试用订阅明细'}</span></div>`;
+  }
+  const q=d.quotas||{};
+  const pick=(arr,keys)=>(arr||[]).filter(x=>keys.some(k=>x.name.includes(k)));
+  const comp=pick(q.compute,['a1-core','a1-memory','standard','e3','e4','e5','gpu']).slice(0,8);
+  const bs=pick(q.block_storage,['backup','storage','volume']).slice(0,8);
+  const qrow=x=>`<div class="ov-row small"><span class="lab">${x.name}</span><span class="num">${x.value}</span></div>`;
+  const quota=`<div class="ov-sub">实例配额</div>`
+    +(comp.length?comp.map(qrow).join(''):'<div class="ov-row small"><span class="lab">—</span></div>')
+    +`<div class="ov-sub">硬盘配额</div>`
+    +(bs.length?bs.map(qrow).join(''):'<div class="ov-row small"><span class="lab">—</span></div>');
+  return `
+    <div class="ov-card c-cost"><h4><span class="ico"></span>成本 · ${d.account}</h4>${cost}</div>
+    <div class="ov-card c-traf"><h4><span class="ico"></span>流量（估算）</h4>${traf}</div>
+    <div class="ov-card c-sub"><h4><span class="ico"></span>订阅</h4>${sub}</div>
+    <div class="ov-card c-quota"><h4><span class="ico"></span>配额 · ${d.region}</h4>${quota}</div>`;
+}
+
+/* ====== Profile 区域分组（可折叠） ====== */
+const REGION_CN={'il-jerusalem-1':'以色列','uk-london-1':'伦敦','af-johannesburg-1':'南非',
+  'us-sanjose-1':'圣何塞','ap-tokyo-1':'东京','ap-osaka-1':'大阪','ap-seoul-1':'首尔',
+  'ap-singapore-1':'新加坡','us-ashburn-1':'阿什本','us-phoenix-1':'凤凰城',
+  'eu-frankfurt-1':'法兰克福','ap-mumbai-1':'孟买','sa-saopaulo-1':'圣保罗','ca-toronto-1':'多伦多'};
+let OPEN_REGIONS=new Set();
+async function loadProfiles(){
+  const box=document.getElementById('profiles');
+  try{
+    const {groups}=await api('/api/profiles');
+    if(!groups.length){box.innerHTML='<div class="empty box">未配置账号</div>';return;}
+    if(OPEN_REGIONS.size===0 && groups[0]) OPEN_REGIONS.add(groups[0].region); // 默认展开第一个
+    box.innerHTML=groups.map(g=>{
+      const cn=REGION_CN[g.region]||'';
+      const open=OPEN_REGIONS.has(g.region)?' open':'';
+      const rows=g.accounts.map(a=>{
+        if(!a.ok) return `<div class="prof-row bad">
+          <span class="pname">${a.name}</span><span class="mono">${a.error||''}</span>
+          <span class="mono">${a.region}</span><span></span></div>`;
+        return `<div class="prof-row">
+          <span class="pname">${a.name}</span>
+          <span class="mono">${a.tenancy_name||a.user.slice(-10)}</span>
+          <span class="mono">${a.region}</span>
+          <button class="btn sm" onclick="gotoOv('${a.name}')">概览</button></div>`;
+      }).join('');
+      return `<div class="region${open}" data-r="${g.region}">
+        <div class="region-head" onclick="toggleRegion('${g.region}')">${CHEV}
+          <span class="flag">◆</span><span class="rname">${g.region}</span>
+          ${cn?`<span class="rcn">· ${cn}</span>`:''}
+          <span class="cnt">${g.accounts.length} 账号</span></div>
+        <div class="region-body">${rows}</div></div>`;
+    }).join('');
+  }catch(e){box.innerHTML=`<div class="empty box">${e.message}</div>`;}
+}
+function toggleRegion(r){
+  const el=document.querySelector(`.region[data-r="${r}"]`);
+  if(!el)return;
+  el.classList.toggle('open');
+  if(el.classList.contains('open'))OPEN_REGIONS.add(r);else OPEN_REGIONS.delete(r);
+}
+function gotoOv(acc){
+  document.getElementById('accSel').value=acc; CUR_ACC=acc;
+  loadAccountOverview(); window.scrollTo({top:0,behavior:'smooth'});
+}
+
+/* ====== 实例 ====== */
+const STATE_CLS={RUNNING:'b-run',STOPPED:'b-stop'};
+const badgeCls=s=>STATE_CLS[s]||'b-busy';
+async function loadInstances(){
+  const grid=document.getElementById('instGrid');
+  grid.innerHTML='<div class="empty">加载中…</div>';
+  try{
+    const {instances}=await api('/api/instances?account='+encodeURIComponent(CUR_ACC));
+    grid.innerHTML=instances.length?instances.map(card).join(''):'<div class="empty">该账号下没有实例</div>';
+  }catch(e){grid.innerHTML=`<div class="empty">加载失败：${e.message}</div>`;}
+}
+function card(x){
+  const spec=x.ocpus?`${x.ocpus} OCPU / ${x.memory_gb}GB`:x.shape;
+  return `<div class="card">
+    <div class="top"><span class="name" title="${x.name}">${x.name}</span>
+      <span class="badge ${badgeCls(x.state)}">${x.state}</span></div>
+    <div class="kv">
+      <span class="k">公网IP</span><span class="v ip">${x.public_ip||'—'}</span>
+      <span class="k">规格</span><span class="v">${spec}</span>
+      <span class="k">区域</span><span class="v">${x.region}</span></div>
+    <div class="acts">
+      <button class="btn sm" ${x.state==='RUNNING'?'disabled':''} onclick="act('${x.id}','START')">开机</button>
+      <button class="btn sm" ${x.state==='STOPPED'?'disabled':''} onclick="act('${x.id}','SOFTSTOP')">关机</button>
+      <button class="btn sm" onclick="act('${x.id}','SOFTRESET')">重启</button>
+      <button class="btn sm" onclick="chip('${x.id}')">换IP</button>
+      <button class="btn sm danger" onclick="term('${x.id}','${x.name}')">终止</button></div></div>`;
+}
+async function act(id,action){
+  try{const d=await api('/api/action',{method:'POST',body:JSON.stringify({account:CUR_ACC,instance_id:id,action})});
+    toast(d.msg,'ok');setTimeout(loadInstances,1500);
+  }catch(e){toast(e.message,'err');}
+}
+async function chip(id){
+  toast('换IP中，请稍候…');
+  try{const d=await api('/api/chip',{method:'POST',body:JSON.stringify({account:CUR_ACC,instance_id:id})});
+    toast(d.msg,'ok');setTimeout(loadInstances,1500);
+  }catch(e){toast(e.message,'err');}
+}
+async function term(id,name){
+  if(!confirm(`确认终止实例「${name}」？此操作不可恢复`))return;
+  try{const d=await api('/api/terminate',{method:'POST',body:JSON.stringify({account:CUR_ACC,instance_id:id})});
+    toast(d.msg,'ok');setTimeout(loadInstances,1500);
+  }catch(e){toast(e.message,'err');}
+}
+
+/* ====== 用户管理 ====== */
+async function loadUsers(){
+  const box=document.getElementById('usersTable');
+  box.innerHTML='<div class="empty">加载中…</div>';
+  try{
+    const {users}=await api('/api/users?account='+encodeURIComponent(CUR_ACC));
+    if(!users.length){box.innerHTML='<div class="empty">该账号下没有用户</div>';return;}
+    box.innerHTML=`<table><thead><tr>
+      <th>用户名</th><th>邮箱</th><th>状态</th><th>用户组</th><th>2FA</th><th>创建时间</th><th style="text-align:right">操作</th>
+      </tr></thead><tbody>${users.map(userRow).join('')}</tbody></table>`;
+  }catch(e){box.innerHTML=`<div class="empty">加载失败：${e.message}</div>`;}
+}
+function userRow(u){
+  const st=u.state==='ACTIVE'?'act':'na';
+  const grps=(u.groups||[]).map(g=>`<span class="grp-tag">${g}</span>`).join('')||'<span class="mono">—</span>';
+  const mfa=u.mfa?'<span class="pill act">已启用</span>':'<span class="pill na">未启用</span>';
+  return `<tr>
+    <td><div class="uname">${u.name}</div></td>
+    <td><span class="mono">${u.email||'—'}</span></td>
+    <td><span class="pill ${st}">${u.state}</span></td>
+    <td>${grps}</td>
+    <td>${mfa}</td>
+    <td><span class="mono">${(u.time_created||'').slice(0,19).replace('T',' ')}</span></td>
+    <td><div class="td-acts">
+      <button class="btn sm" onclick="resetPw('${u.id}')">重置密码</button>
+      <button class="btn sm danger" onclick="delUser('${u.id}','${u.name}')">删除</button>
+    </div></td></tr>`;
+}
+function openCreateUser(){document.getElementById('createUserModal').classList.add('show');}
+async function submitCreateUser(){
+  const name=document.getElementById('cu_name').value.trim();
+  if(!name){toast('用户名必填','err');return;}
+  try{
+    await api('/api/user/create',{method:'POST',body:JSON.stringify({account:CUR_ACC,name,
+      email:document.getElementById('cu_email').value.trim()||null,
+      group:document.getElementById('cu_group').value.trim()||'Administrators'})});
+    closeModal('createUserModal');toast('用户已创建','ok');
+    document.getElementById('cu_name').value='';document.getElementById('cu_email').value='';
+    loadUsers();
+  }catch(e){toast(e.message,'err');}
+}
+async function delUser(id,name){
+  if(!confirm(`确认删除用户「${name}」？`))return;
+  try{await api('/api/user/delete',{method:'POST',body:JSON.stringify({account:CUR_ACC,user_id:id})});
+    toast('已删除','ok');loadUsers();
+  }catch(e){toast(e.message,'err');}
+}
+let _pw='';
+async function resetPw(id){
+  try{const d=await api('/api/user/reset_password',{method:'POST',body:JSON.stringify({account:CUR_ACC,user_id:id})});
+    _pw=d.password;document.getElementById('pwValue').textContent=d.password;
+    document.getElementById('pwModal').classList.add('show');
+  }catch(e){toast(e.message,'err');}
+}
+function copyPw(){navigator.clipboard.writeText(_pw).then(()=>toast('已复制','ok'));}
+async function clearAll2FA(){
+  if(!confirm('确认清除该账号下所有用户的 2FA？'))return;
+  toast('处理中…');
+  try{const d=await api('/api/users/clear_all_2fa',{method:'POST',body:JSON.stringify({account:CUR_ACC,instance_id:'',action:''})});
+    toast(`已清除 ${d.users} 个用户、共 ${d.devices} 个设备`,'ok');loadUsers();
+  }catch(e){toast(e.message,'err');}
+}
+
+/* ====== 抢机 ====== */
+async function startGrab(){
+  const v=id=>document.getElementById(id).value.trim();
+  const body={account:CUR_ACC,display_name:v('g_name'),subnet_id:v('g_subnet'),
+    image_id:v('g_image'),shape:v('g_shape'),
+    ocpus:v('g_ocpu')?parseFloat(v('g_ocpu')):null,memory_gb:v('g_mem')?parseFloat(v('g_mem')):null,
+    ssh_key:v('g_ssh')||null,boot_volume_gb:v('g_boot')?parseInt(v('g_boot')):null,
+    retries:parseInt(v('g_retries'))||100,interval:parseInt(v('g_interval'))||60};
+  if(!body.subnet_id||!body.image_id){toast('Subnet 和 Image OCID 必填','err');return;}
+  try{await api('/api/grab',{method:'POST',body:JSON.stringify(body)});
+    toast('抢机任务已启动','ok');switchTab('jobs');
+  }catch(e){toast(e.message,'err');}
+}
+
+/* ====== 任务 ====== */
+async function loadJobs(){
+  const box=document.getElementById('jobsList');
+  try{const {jobs}=await api('/api/jobs');
+    box.innerHTML=jobs.length?jobs.map(jobCard).join(''):'<div class="empty box">暂无抢机任务</div>';
+  }catch(e){box.innerHTML=`<div class="empty box">${e.message}</div>`;}
+}
+const JST={running:['var(--yellow)','rgba(230,184,74,.13)'],success:['var(--green)','rgba(69,201,122,.13)'],
+  failed:['var(--red)','rgba(240,86,63,.13)'],stopped:['var(--muted)','rgba(139,148,163,.13)']};
+function jobCard(j){
+  const[c,bg]=JST[j.status]||JST.running;
+  const logs=(j.logs||[]).map(l=>{let cls='';if(/成功|success/i.test(l))cls='ok';else if(/失败|异常|fail/i.test(l))cls='err';
+    return `<span class="${cls}">${l}</span>`;}).join('\n');
+  const stop=j.status==='running'?`<button class="btn sm danger" onclick="stopJob('${j.id}')">停止</button>`:'';
+  return `<div class="job">
+    <div class="jhead"><span class="mono">${j.id.slice(0,8)}</span>
+      <span>${j.account} · ${j.params.shape||''}</span>
+      <span class="jstatus" style="color:${c};background:${bg}">${j.status} · ${j.attempts}次</span>
+      <span style="margin-left:auto">${stop}</span></div>
+    <div class="term">${logs||'等待开始…'}</div></div>`;
+}
+async function stopJob(id){
+  try{await api('/api/job/'+id+'/stop',{method:'POST'});toast('已请求停止');loadJobs();}
+  catch(e){toast(e.message,'err');}
+}
+setInterval(()=>{if(document.getElementById('v-jobs').classList.contains('on'))loadJobs();},4000);
+
+if(AUTH_REQUIRED){showLogin();document.getElementById('pw').addEventListener('keydown',e=>{if(e.key==='Enter')doLogin();});}
+else init();
+</script>
+<style>
+  .job{background:linear-gradient(180deg,var(--panel),#12151c);border:1px solid var(--line);
+    border-radius:13px;padding:15px 17px;margin-bottom:13px;box-shadow:var(--shadow)}
+  .job .jhead{display:flex;align-items:center;gap:11px;margin-bottom:11px;font-size:13px}
+  .job .jstatus{font-family:var(--mono);font-size:11px;padding:2px 9px;border-radius:5px;font-weight:600}
+  .term{background:var(--ink-2);border:1px solid var(--line);border-radius:9px;padding:12px 14px;
+    font-family:var(--mono);font-size:11.5px;line-height:1.75;max-height:260px;overflow-y:auto;
+    color:#9aa3b2;white-space:pre-wrap;word-break:break-all}
+  .term .ok{color:var(--green)} .term .err{color:var(--red)}
+</style>
+</body>
+</html>

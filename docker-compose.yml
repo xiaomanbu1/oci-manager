@@ -1,0 +1,12 @@
+services:
+  oci-manager:
+    build: .
+    container_name: oci-manager
+    restart: unless-stopped
+    ports:
+      - "9527:9527"
+    volumes:
+      - ./config.yaml:/app/config.yaml:ro   # 你的配置
+      - ./keys:/app/keys:ro                  # 私钥目录
+    environment:
+      - OCI_MANAGER_CONFIG=/app/config.yaml

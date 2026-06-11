@@ -129,6 +129,55 @@ class Service:
             groups.setdefault(acc.region, []).append(entry)
         return [{"region": r, "accounts": groups[r]} for r in sorted(groups)]
 
+    # ---------- 配置管理（网页上传 OCI 账号）----------
+    def config_accounts_summary(self) -> List[dict]:
+        """已配置账号一览（给配置页用）。"""
+        out = []
+        for acc in self.config.accounts:
+            out.append({
+                "name": acc.name, "region": acc.region,
+                "tenancy": acc.tenancy[-16:] if acc.tenancy else "",
+                "ok": acc.name in self._managers,
+                "error": self._errors.get(acc.name),
+            })
+        return sorted(out, key=lambda x: x["name"])
+
+    def add_oci_config(self, text: str, pem_map: Dict[str, bytes]) -> dict:
+        """解析粘贴的 OCI 配置文本 + PEM，持久化并热加载。"""
+        from . import store
+        from .config import OciAccount
+        profiles = store.parse_oci_config(text)
+        res = store.add_profiles(profiles, pem_map)
+        # 对成功保存的账号热加载 manager
+        saved = {a["name"]: a for a in store.load_accounts()}
+        init_errors = []
+        for name in res["added"]:
+            item = saved[name]
+            acc = OciAccount(
+                name=item["name"], user=item["user"], tenancy=item["tenancy"],
+                fingerprint=item["fingerprint"], region=item["region"],
+                key_content=item.get("key_content"),
+                pass_phrase=item.get("pass_phrase"),
+                compartment=item.get("compartment"))
+            self.config.accounts = [a for a in self.config.accounts if a.name != name]
+            self.config.accounts.append(acc)
+            try:
+                self._managers[name] = OciManager(acc)
+                self._errors.pop(name, None)
+            except Exception as e:
+                self._errors[name] = str(e)
+                init_errors.append({"name": name, "error": str(e)[:120]})
+        res["init_errors"] = init_errors
+        return res
+
+    def delete_account(self, name: str) -> bool:
+        from . import store
+        store.remove_account(name)
+        self._managers.pop(name, None)
+        self._errors.pop(name, None)
+        self.config.accounts = [a for a in self.config.accounts if a.name != name]
+        return True
+
     # ---------- 抢机任务 ----------
     def start_grab(self, account: str, params: dict) -> str:
         mgr = self.manager(account)

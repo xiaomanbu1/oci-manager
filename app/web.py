@@ -7,7 +7,7 @@ import secrets
 import logging
 from functools import wraps
 
-from fastapi import FastAPI, Request, HTTPException, Depends
+from fastapi import FastAPI, Request, HTTPException, Depends, UploadFile, File, Form
 from fastapi.responses import HTMLResponse, JSONResponse
 from pydantic import BaseModel
 
@@ -52,6 +52,10 @@ class UserCreateReq(BaseModel):
     email: str | None = None
     description: str | None = None
     group: str = "Administrators"
+
+
+class ConfigDelReq(BaseModel):
+    name: str
 
 
 def create_app(service: Service, password: str = "") -> FastAPI:
@@ -102,6 +106,28 @@ def create_app(service: Service, password: str = "") -> FastAPI:
     @app.get("/api/profiles")
     async def profiles(_=Depends(check_auth)):
         return {"groups": service.profiles_grouped()}
+
+    # ---------- 配置管理：网页上传 OCI 账号 ----------
+    @app.get("/api/config/accounts")
+    async def config_accounts(_=Depends(check_auth)):
+        return {"accounts": service.config_accounts_summary()}
+
+    @app.post("/api/config/oci")
+    async def config_oci(config_text: str = Form(...),
+                         files: list[UploadFile] = File(default=[]),
+                         _=Depends(check_auth)):
+        import asyncio
+        pem_map = {}
+        for f in files:
+            pem_map[f.filename] = await f.read()
+        res = await asyncio.to_thread(service.add_oci_config, config_text, pem_map)
+        return {"ok": True, **res}
+
+    @app.post("/api/config/delete")
+    async def config_delete(req: ConfigDelReq, _=Depends(check_auth)):
+        import asyncio
+        await asyncio.to_thread(service.delete_account, req.name)
+        return {"ok": True}
 
     @app.get("/api/account_overview")
     async def account_overview(account: str, months: int = 3, _=Depends(check_auth)):

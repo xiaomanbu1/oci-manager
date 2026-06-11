@@ -2,35 +2,23 @@
 # OCI API 参数获取：控制台右上角头像 → User Settings → API Keys → Add API Key
 # 生成后下载私钥，下方 Configuration File Preview 里就有 user/tenancy/fingerprint/region
 
-accounts:
-  - name: tokyo-main          # 账号别名，Bot/Web 里用它区分
-    user: ocid1.user.oc1..xxxx
-    tenancy: ocid1.tenancy.oc1..xxxx
-    fingerprint: "aa:bb:cc:dd:..."
-    region: ap-tokyo-1
-    key_file: ./keys/tokyo.pem    # 私钥路径；或改用 key_content 内联 PEM
-    # key_content: |
-    #   -----BEGIN PRIVATE KEY-----
-    #   ...
-    #   -----END PRIVATE KEY-----
-    # pass_phrase: ""             # 私钥有密码才填
-    # compartment: ocid1.compartment...   # 不填默认用 tenancy 根
-
-  # - name: osaka-2
-  #   user: ocid1.user.oc1..yyyy
-  #   tenancy: ocid1.tenancy.oc1..yyyy
-  #   fingerprint: "..."
-  #   region: ap-osaka-1
-  #   key_file: ./keys/osaka.pem
+accounts: []   # 可留空：起服务后到网页「配置」页粘贴 OCI 配置文本 + 上传 PEM
+# 也可以在这里静态写死，二选一或混用：
+#  - name: tokyo-main
+#    user: ocid1.user.oc1..xxx
+#    tenancy: ocid1.tenancy.oc1..xxx
+#    fingerprint: "aa:bb:cc:dd"
+#    region: ap-tokyo-1
+#    key_file: ./keys/tokyo.pem
 
 telegram:
   enabled: false
   token: "123456:ABC-your-bot-token"
-  admin_ids:                  # 白名单，只有这些 chat_id 能操作；留空=不限制
+  admin_ids:
     - 123456789
 
 web:
   enabled: true
   host: 0.0.0.0
   port: 9527
-  password: ""                # 访问口令，公网部署强烈建议设置
+  password: ""                # 公网部署强烈建议设置访问口令

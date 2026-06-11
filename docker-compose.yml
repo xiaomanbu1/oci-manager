@@ -6,7 +6,8 @@ services:
     ports:
       - "9527:9527"
     volumes:
-      - ./config.yaml:/app/config.yaml:ro   # 你的配置
-      - ./keys:/app/keys:ro                  # 私钥目录
+      - ./config.yaml:/app/config.yaml:ro   # Web/Telegram 设置（账号可留空，网页上传）
+      - ./data:/app/data                     # 网页上传的账号+密钥持久化在这里
     environment:
       - OCI_MANAGER_CONFIG=/app/config.yaml
+      - OCI_MANAGER_DATA=/app/data

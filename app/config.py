@@ -77,16 +77,35 @@ class AppConfig:
 
 def load_config(path: str = None) -> AppConfig:
     path = path or CONFIG_PATH
-    if not os.path.exists(path):
-        raise FileNotFoundError(
-            f"找不到配置文件 {path}，请复制 config.example.yaml 为 config.yaml 后填写"
-        )
-    with open(path, "r", encoding="utf-8") as f:
-        raw = yaml.safe_load(f) or {}
+    if os.path.exists(path):
+        with open(path, "r", encoding="utf-8") as f:
+            raw = yaml.safe_load(f) or {}
+    else:
+        # 没有 config.yaml 也能起：Web 默认开，账号靠网页上传
+        import logging
+        logging.getLogger("oci_manager.config").warning(
+            "未找到 %s，使用默认配置（Web 开启，账号请在网页「配置」页上传）", path)
+        raw = {}
 
     accounts = []
     for item in raw.get("accounts", []):
         accounts.append(OciAccount(**item))
+
+    # 合并网页上传、持久化在 data/ 的账号
+    try:
+        from . import store
+        for item in store.load_accounts():
+            accounts = [a for a in accounts if a.name != item.get("name")]
+            accounts.append(OciAccount(
+                name=item["name"], user=item["user"], tenancy=item["tenancy"],
+                fingerprint=item["fingerprint"], region=item["region"],
+                key_content=item.get("key_content"),
+                pass_phrase=item.get("pass_phrase"),
+                compartment=item.get("compartment"),
+            ))
+    except Exception as e:
+        import logging
+        logging.getLogger("oci_manager.config").error("加载存储账号失败: %s", e)
 
     tg_raw = raw.get("telegram", {}) or {}
     admin_ids = tg_raw.get("admin_ids", [])

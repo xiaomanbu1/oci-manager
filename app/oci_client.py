@@ -343,10 +343,16 @@ class OciManager:
 
     @staticmethod
     def _month_starts(months: int) -> tuple:
-        """返回 (起始月初, 当前时刻) 的 UTC datetime。"""
+        """返回 (起始月初, 结束月初) 的 UTC datetime，都对齐到月初。
+        Usage API 的 MONTHLY 粒度要求起止都是某月 1 号 00:00:00。"""
         now = datetime.datetime.now(datetime.timezone.utc)
         first = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
-        # 往前推 months-1 个月
+        # 结束 = 下月月初（含当月）
+        if first.month == 12:
+            end = first.replace(year=first.year + 1, month=1)
+        else:
+            end = first.replace(month=first.month + 1)
+        # 起始 = 往前推 months-1 个月
         y, m = first.year, first.month
         for _ in range(months - 1):
             m -= 1
@@ -354,7 +360,7 @@ class OciManager:
                 m = 12
                 y -= 1
         start = first.replace(year=y, month=m)
-        return start, now
+        return start, end
 
     def monthly_cost(self, months: int = 3) -> List[Dict]:
         """按月成本。需要租户开通 Usage API 且 user 有读权限。"""
@@ -362,16 +368,18 @@ class OciManager:
         details = oci.usage_api.models.RequestSummarizedUsagesDetails(
             tenant_id=self.account.tenancy,
             time_usage_started=start, time_usage_ended=end,
-            granularity="MONTHLY", query_type="COST", is_aggregate_by_time=True,
+            granularity="MONTHLY", query_type="COST",
         )
         resp = self.usage.request_summarized_usages(details)
-        out = []
+        buckets = {}
+        cur = "USD"
         for it in resp.data.items:
-            out.append({
-                "month": str(it.time_usage_started)[:7],
-                "amount": round(float(it.computed_amount or 0), 2),
-                "currency": it.currency or "USD",
-            })
+            month = str(it.time_usage_started)[:7]
+            buckets[month] = buckets.get(month, 0) + float(it.computed_amount or 0)
+            if it.currency:
+                cur = it.currency
+        out = [{"month": m, "amount": round(v, 2), "currency": cur}
+               for m, v in buckets.items()]
         out.sort(key=lambda x: x["month"])
         return out
 

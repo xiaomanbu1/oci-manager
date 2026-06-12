@@ -413,7 +413,9 @@ class OciManager:
         return out
 
     def _limit_map(self, service: str) -> Dict[str, int]:
-        """取某服务全部 limit，返回 {name: 值合计}。"""
+        """取某服务全部 limit，返回 {name: 值}。
+        AD 维度的 limit 会按可用域返回多条（每域同值），取最大单值即每域限额，
+        和 OCI 控制台 Limits 页一致——不能求和（求和会按可用域数翻倍）。"""
         try:
             vals = oci.pagination.list_call_get_all_results(
                 self.limits.list_limit_values, self.compartment_id, service
@@ -421,10 +423,12 @@ class OciManager:
         except oci.exceptions.ServiceError as e:
             log.warning("取 %s 限额失败: %s", service, e)
             return {}
-        agg: Dict[str, float] = {}
+        agg: Dict[str, int] = {}
         for v in vals:
-            agg[v.name] = agg.get(v.name, 0) + (v.value or 0)
-        return {k: int(v) for k, v in agg.items()}
+            val = int(v.value or 0)
+            if v.name not in agg or val > agg[v.name]:
+                agg[v.name] = val
+        return agg
 
     # 精选配额清单：(分类, 显示标签, 服务, limit 名)
     QUOTA_SPEC = [

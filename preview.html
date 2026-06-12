@@ -77,6 +77,9 @@
   .btn.primary{background:linear-gradient(135deg,#ffc24d,var(--amber));color:#231803;
     border-color:transparent;font-weight:600;box-shadow:0 4px 14px -6px var(--amber)}
   .btn.primary:hover{filter:brightness(1.06);color:#231803}
+  .btn.danger-solid{background:linear-gradient(135deg,#ff6b54,var(--red));color:#2a0d08;
+    border-color:transparent;font-weight:600;box-shadow:0 4px 14px -6px var(--red)}
+  .btn.danger-solid:hover{filter:brightness(1.06);color:#2a0d08}
   .btn:disabled{opacity:.38;cursor:not-allowed;border-color:var(--line)}
   .btn:disabled:hover{color:var(--text);background:var(--panel-2)}
   .btn.sm{padding:5px 11px;font-size:12px}
@@ -142,10 +145,11 @@
   .barfill.gb{background:linear-gradient(90deg,#3877bd,var(--blue))}
   .ov-card{position:relative;background:linear-gradient(180deg,var(--panel),#12151c);
     border:1px solid var(--line);border-radius:13px;padding:17px 18px 16px;
-    box-shadow:var(--shadow);overflow:hidden;max-height:340px;overflow-y:auto}
-  .ov-card::-webkit-scrollbar{width:7px}
-  .ov-card h4{position:sticky;top:-17px;z-index:1;margin:-17px -18px 12px;padding:15px 18px 9px;
-    background:var(--panel)}
+    box-shadow:var(--shadow);overflow:hidden;height:300px;display:flex;flex-direction:column}
+  .ov-card h4{flex-shrink:0}
+  .ov-body{flex:1;min-height:0;display:flex;flex-direction:column;justify-content:space-between}
+  .ov-body.scroll{justify-content:flex-start;display:block;overflow-y:auto}
+  .ov-body.scroll::-webkit-scrollbar{width:7px}
   .ov-card::before{content:'';position:absolute;top:0;left:0;right:0;height:2px;
     background:var(--cat,var(--amber));opacity:.85}
   .ov-card.c-cost{--cat:var(--green)} .ov-card.c-traf{--cat:var(--blue)}
@@ -368,6 +372,18 @@
   </div>
 </div>
 
+<!-- 通用确认 modal -->
+<div class="modal-bg" id="confirmModal">
+  <div class="modal" style="width:390px">
+    <h3 id="cfTitle">确认操作</h3>
+    <div id="cfMsg" style="color:var(--muted);font-size:13.5px;line-height:1.65;margin-bottom:20px;white-space:pre-line"></div>
+    <div class="actions">
+      <button class="btn sm" onclick="cfAnswer(false)">取消</button>
+      <button class="btn sm primary" id="cfOk" onclick="cfAnswer(true)">确认</button>
+    </div>
+  </div>
+</div>
+
 <div id="toast"></div>
 
 <!-- 升降级 modal -->
@@ -416,15 +432,15 @@
 const OV={'z':{account:'DEFAULT',region:'us-ashburn-1',errors:{},
   cost:[{month:'2026-05',amount:115.06,currency:'USD'},{month:'2026-06',amount:99.56,currency:'USD'}],
   traffic:[{month:'2026-05',gb:3.22},{month:'2026-06',gb:3.73}],
-  subscription:{available:true,service_name:'CLOUDCM',status:'ACTIVE',start:'2026-04-24',end:'2027-04-23'},
-  quotas:{"\u5b9e\u4f8b\u914d\u989d": [{"label": "ARM\u6838\u5fc3\u6570\u91cf", "value": 4}, {"label": "\u5185\u5b58\u5927\u5c0f", "value": 24}, {"label": "standard-a2-core-count", "value": 8}, {"label": "standard-a2-memory-count", "value": 96}, {"label": "\u4e0a\u4e00\u4ee3AMD\u6838\u5fc3\u6570\u91cf", "value": 2}], "\u786c\u76d8\u914d\u989d": [{"label": "backup-count", "value": 5}, {"label": "free-backup-count", "value": 5}, {"label": "\u603b\u514d\u8d39\u786c\u76d8", "value": 200}, {"label": "\u603b\u786c\u76d8", "value": 200}, {"label": "volume-count", "value": 10000}, {"label": "volumes-per-group", "value": 32}], "\u7f51\u7edc\u914d\u989d": [{"label": "dhcp-option-count", "value": 300}, {"label": "drg-count", "value": 5}, {"label": "flow-log-config-count", "value": 100}, {"label": "internet-gateway-count", "value": 1}, {"label": "networksecuritygroups-count", "value": 1000}, {"label": "\u9884\u7559IP\u6570\u91cf", "value": 1}, {"label": "\u8def\u7531\u8868\u6570\u91cf", "value": 300}, {"label": "\u5b89\u5168\u5217\u8868\u6570\u91cf", "value": 300}, {"label": "securityrules-per-nsg-count", "value": 120}, {"label": "\u5b50\u7f51\u6570\u91cf", "value": 300}, {"label": "VCN\u6570\u91cf", "value": 2}], "\u53ef\u8ba2\u9605\u5730\u533a\u6570\u91cf": [{"label": "subscribed-region-count", "value": 1}], "\u5bf9\u8c61\u5b58\u50a8": [{"label": "bucket-count", "value": 10000}, {"label": "storage-bytes", "value": 21474836480}]}}};
+  subscription:{available:true,service_name:'CLOUDCM',status:'ACTIVE',start:'2026-05-18',end:'2026-06-16'},
+  quotas:{"\u5b9e\u4f8b\u914d\u989d": [{"label": "ARM\u6838\u5fc3\u6570\u91cf", "value": 4}, {"label": "\u5185\u5b58\u5927\u5c0f", "value": 24}, {"label": "standard-a2-core-count", "value": 8}, {"label": "standard-a2-memory-count", "value": 96}, {"label": "\u4e0a\u4e00\u4ee3AMD\u6838\u5fc3\u6570\u91cf", "value": 2}], "\u786c\u76d8\u914d\u989d": [{"label": "backup-count", "value": 5}, {"label": "free-backup-count", "value": 5}, {"label": "\u603b\u514d\u8d39\u786c\u76d8", "value": 200}, {"label": "\u603b\u786c\u76d8", "value": 200}, {"label": "volume-count", "value": 10000}, {"label": "volumes-per-group", "value": 32}], "\u7f51\u7edc\u914d\u989d": [{"label": "dhcp-option-count", "value": 300}, {"label": "drg-count", "value": 5}, {"label": "internet-gateway-count", "value": 1}, {"label": "\u5b50\u7f51\u6570\u91cf", "value": 300}, {"label": "VCN\u6570\u91cf", "value": 2}], "\u53ef\u8ba2\u9605\u5730\u533a\u6570\u91cf": [{"label": "subscribed-region-count", "value": 1}], "\u5bf9\u8c61\u5b58\u50a8": [{"label": "bucket-count", "value": 10000}, {"label": "storage-bytes", "value": 21474836480}]}}};
 const PROFILES={groups:[{region:'us-ashburn-1',accounts:[{name:'DEFAULT',ok:true,tenancy_name:'zuneaup038',user:'x',region:'us-ashburn-1'}]}]};
 const MOCK={'/api/accounts':{accounts:['DEFAULT']},'/api/overview':{overview:[{account:'z',total:1,running:1}]},
   '/api/profiles':PROFILES,'/api/config/accounts':{accounts:[]},'/api/jobs':{jobs:[]}};
 const MOCK_INST={'DEFAULT':[{id:'i1',name:'instance-0912',state:'RUNNING',shape:'VM.Standard.E5.Flex',ocpus:24,memory_gb:27,region:'us-ashburn-1',public_ip:'149.118.142.231',boot_gb:47,boot_vpu:10,time_created:'2026-04-25T01:13:49Z'}]};
-window.fetch=async(path)=>{await new Promise(r=>setTimeout(r,100));let data={};
+window.fetch=async(path)=>{await new Promise(r=>setTimeout(r,80));let data={};
   if(path.startsWith('/api/account_overview'))data=OV['z'];
-  else if(path.startsWith('/api/instances')){data={instances:MOCK_INST['DEFAULT']};}
+  else if(path.startsWith('/api/instances'))data={instances:MOCK_INST['DEFAULT']};
   else if(MOCK[path])data=MOCK[path];else data={ok:true};
   return {status:200,ok:true,json:async()=>data};};
 </script><script>
@@ -448,6 +464,25 @@ async function doLogin(){
   }catch(e){toast('口令错误','err');}
 }
 function closeModal(id){document.getElementById(id).classList.remove('show');}
+
+// 自定义确认弹窗（替代丑陋的原生 confirm）
+let _cfResolve=null;
+function customConfirm(msg,opts){
+  opts=opts||{};
+  return new Promise(res=>{
+    _cfResolve=res;
+    document.getElementById('cfTitle').textContent=opts.title||'确认操作';
+    document.getElementById('cfMsg').textContent=msg;
+    const ok=document.getElementById('cfOk');
+    ok.textContent=opts.okText||'确认';
+    ok.className='btn sm '+(opts.danger?'danger-solid':'primary');
+    document.getElementById('confirmModal').classList.add('show');
+  });
+}
+function cfAnswer(v){
+  document.getElementById('confirmModal').classList.remove('show');
+  if(_cfResolve){_cfResolve(v);_cfResolve=null;}
+}
 
 function switchTab(v){
   document.querySelectorAll('nav.tabs button').forEach(b=>b.classList.toggle('on',b.dataset.v===v));
@@ -510,11 +545,11 @@ function renderOv(d){
     </div>`).join('');
   };
   const cost=(d.cost||[]).length
-    ? bars(d.cost.map(c=>({label:c.month,value:c.amount,disp:`${c.currency} ${c.amount.toFixed(2)}`,cls:'money'})))
+    ? `<div>${bars(d.cost.map(c=>({label:c.month,value:c.amount,disp:`${c.currency} ${c.amount.toFixed(2)}`,cls:'money'})))}</div>`
       +`<div class="ov-row total"><span class="lab">近${d.cost.length}月合计</span><span class="num money">${d.cost[0].currency} ${d.cost.reduce((s,c)=>s+c.amount,0).toFixed(2)}</span></div>`
     : `<div class="ov-row small"><span class="lab">${er.cost?errMsg(er.cost):'本月无消费记录（免费档通常为 0）'}</span></div>`;
   const traf=(d.traffic||[]).length
-    ? bars(d.traffic.map(t=>({label:t.month,value:t.gb,disp:`${t.gb.toFixed(2)} GB`,cls:'gb'})))
+    ? `<div>${bars(d.traffic.map(t=>({label:t.month,value:t.gb,disp:`${t.gb.toFixed(2)} GB`,cls:'gb'})))}</div>`
       +`<div class="ov-row total"><span class="lab">近${d.traffic.length}月合计</span><span class="num gb">${d.traffic.reduce((s,t)=>s+t.gb,0).toFixed(2)} GB</span></div>`
     : `<div class="ov-row small"><span class="lab">${er.traffic?errMsg(er.traffic):'暂无流量计费记录'}</span></div>`;
   const s=d.subscription||{};
@@ -538,10 +573,10 @@ function renderOv(d){
   CATS.forEach(cat=>{ if(q[cat]&&q[cat].length) quota+=`<div class="ov-sub">${cat}</div>`+q[cat].map(qrow).join(''); });
   if(!quota) quota='<div class="ov-row small"><span class="lab">无配额数据</span></div>';
   return `
-    <div class="ov-card c-cost"><h4><span class="ico"></span>成本 · ${d.account}</h4>${cost}</div>
-    <div class="ov-card c-traf"><h4><span class="ico"></span>流量（估算）</h4>${traf}</div>
-    <div class="ov-card c-sub"><h4><span class="ico"></span>订阅</h4>${sub}</div>
-    <div class="ov-card c-quota"><h4><span class="ico"></span>配额 · ${d.region}</h4>${quota}</div>`;
+    <div class="ov-card c-cost"><h4><span class="ico"></span>成本 · ${d.account}</h4><div class="ov-body">${cost}</div></div>
+    <div class="ov-card c-traf"><h4><span class="ico"></span>流量（估算）</h4><div class="ov-body">${traf}</div></div>
+    <div class="ov-card c-sub"><h4><span class="ico"></span>订阅</h4><div class="ov-body">${sub}</div></div>
+    <div class="ov-card c-quota"><h4><span class="ico"></span>配额 · ${d.region}</h4><div class="ov-body scroll">${quota}</div></div>`;
 }
 
 /* ====== Profile 区域分组（可折叠） ====== */
@@ -633,7 +668,7 @@ async function act(id,action){
   const x=INSTANCES[id]||{};
   const NAMES={SOFTSTOP:'关机',STOP:'强制关机',SOFTRESET:'重启',RESET:'强制重启/修复',START:'开机'};
   if(action!=='START'){
-    if(!confirm(`确认对实例「${x.name}」执行【${NAMES[action]||action}】？`))return;
+    if(!await customConfirm(`对实例「${x.name}」执行【${NAMES[action]||action}】？`,{danger:action!=='START'}))return;
   }
   try{const d=await api('/api/action',{method:'POST',body:JSON.stringify({account:CUR_ACC,instance_id:id,action})});
     toast(d.msg,'ok');setTimeout(loadInstances,1500);
@@ -641,7 +676,7 @@ async function act(id,action){
 }
 async function chip(id){
   const x=INSTANCES[id]||{};
-  if(!confirm(`确认给「${x.name}」更换公网 IP？\n当前 ${x.public_ip||'无IP'} 会被释放并重新分配一个新的。`))return;
+  if(!await customConfirm(`给「${x.name}」更换公网 IP？\n当前 ${x.public_ip||'无IP'} 会被释放并重新分配一个新的。`,{danger:true,okText:'换IP'}))return;
   toast('换IP中，请稍候…');
   try{const d=await api('/api/chip',{method:'POST',body:JSON.stringify({account:CUR_ACC,instance_id:id})});
     toast(d.msg,'ok');setTimeout(loadInstances,1500);
@@ -650,7 +685,7 @@ async function chip(id){
 async function term(id,preserve){
   const x=INSTANCES[id]||{};
   const tip=preserve?`终止「${x.name}」但保留启动盘？`:`终止「${x.name}」？启动盘也会删除，不可恢复`;
-  if(!confirm(tip))return;
+  if(!await customConfirm(tip,{danger:true,title:'终止实例',okText:preserve?'保留盘终止':'终止'}))return;
   try{const d=await api('/api/terminate',{method:'POST',
     body:JSON.stringify({account:CUR_ACC,instance_id:id,action:preserve?'preserve':''})});
     toast(d.msg,'ok');setTimeout(loadInstances,1500);
@@ -754,7 +789,7 @@ async function submitCreateUser(){
   }catch(e){toast(e.message,'err');}
 }
 async function delUser(id,name){
-  if(!confirm(`确认删除用户「${name}」？`))return;
+  if(!await customConfirm(`删除用户「${name}」？`,{danger:true,title:'删除用户',okText:'删除'}))return;
   try{await api('/api/user/delete',{method:'POST',body:JSON.stringify({account:CUR_ACC,user_id:id})});
     toast('已删除','ok');loadUsers();
   }catch(e){toast(e.message,'err');}
@@ -768,7 +803,7 @@ async function resetPw(id){
 }
 function copyPw(){navigator.clipboard.writeText(_pw).then(()=>toast('已复制','ok'));}
 async function clearAll2FA(){
-  if(!confirm('确认清除该账号下所有用户的 2FA？'))return;
+  if(!await customConfirm('清除该账号下所有用户的 2FA？此操作不可恢复。',{danger:true,title:'清除全部 2FA',okText:'清除'}))return;
   toast('处理中…');
   try{const d=await api('/api/users/clear_all_2fa',{method:'POST',body:JSON.stringify({account:CUR_ACC,instance_id:'',action:''})});
     toast(`已清除 ${d.users} 个用户、共 ${d.devices} 个设备`,'ok');loadUsers();
@@ -860,7 +895,7 @@ async function uploadConfig(){
   }catch(e){res.innerHTML=`<span class="err">失败: ${e.message}</span>`;}
 }
 async function delConfigAcc(name){
-  if(!confirm(`确认删除账号「${name}」？会一并删除其私钥`))return;
+  if(!await customConfirm(`删除账号「${name}」？会一并删除其私钥。`,{danger:true,title:'删除账号',okText:'删除'}))return;
   try{await api('/api/config/delete',{method:'POST',body:JSON.stringify({name})});
     toast('已删除','ok');loadConfigAccounts();loadHeaderStats();
   }catch(e){toast(e.message,'err');}

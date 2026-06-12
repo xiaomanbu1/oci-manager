@@ -9,6 +9,8 @@ services:
       - ./data:/app/data            # 网页上传的账号+密钥持久化在这里
     environment:
       - OCI_MANAGER_DATA=/app/data
+      # 登录用户名（默认 admin）：
+      - OCI_MANAGER_WEB_USERNAME=admin
       # 访问口令（留空=不鉴权，公网部署务必设置）：
       - OCI_MANAGER_WEB_PASSWORD=改成你的访问口令
       # 想用 Telegram 机器人，取消下面三行注释并填写：

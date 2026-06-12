@@ -38,7 +38,12 @@ class GrabReq(BaseModel):
 
 
 class LoginReq(BaseModel):
-    password: str
+    username: str = ""
+    password: str = ""
+
+
+class TgVerifyReq(BaseModel):
+    code: str
 
 
 class UserReq(BaseModel):
@@ -78,18 +83,50 @@ class BootResizeReq(BaseModel):
     vpu: int | None = None
 
 
-def create_app(service: Service, password: str = "") -> FastAPI:
+async def _tg_broadcast(token: str, admins: list, text: str) -> bool:
+    """通过 Telegram Bot API 给所有管理员发消息，任一成功即返回 True。"""
+    import httpx
+    ok = False
+    url = f"https://api.telegram.org/bot{token}/sendMessage"
+    async with httpx.AsyncClient(timeout=10) as c:
+        for chat in admins:
+            try:
+                r = await c.post(url, json={"chat_id": chat, "text": text})
+                if r.status_code == 200:
+                    ok = True
+                else:
+                    log.warning("TG 发送到 %s 失败: %s %s", chat, r.status_code, r.text[:120])
+            except Exception as e:
+                log.warning("TG 发送到 %s 异常: %s", chat, e)
+    return ok
+
+
+def create_app(service: Service, config=None, password: str = "") -> FastAPI:
     app = FastAPI(title="OCI Manager")
     valid_tokens: set = set()
 
+    # 兼容：可传完整 config，或仅传 password（老调用）
+    if config is not None:
+        password = config.web.password
+        username = config.web.username
+        tg_token = config.telegram.token if config.telegram.enabled else ""
+        tg_admins = [str(a) for a in (config.telegram.admin_ids or [])]
+    else:
+        username, tg_token, tg_admins = "admin", "", []
+    tg_login_enabled = bool(password and tg_token and tg_admins)
+
+    import time
+    tg_codes: dict = {}        # code -> 过期时间戳
+    last_send = {"t": 0.0}
+
     with open(INDEX_HTML, "r", encoding="utf-8") as f:
         _index_template = f.read()
-    index_page = _index_template.replace(
-        "__AUTH_REQUIRED__", "true" if password else "false")
+    index_page = (_index_template
+                  .replace("__AUTH_REQUIRED__", "true" if password else "false")
+                  .replace("__TG_LOGIN__", "true" if tg_login_enabled else "false"))
 
     @app.exception_handler(Exception)
     async def biz_error(request: Request, exc: Exception):
-        # 业务/SDK 异常统一回成 JSON，前端读 detail 字段提示
         log.warning("API 异常 %s: %s", request.url.path, exc)
         return JSONResponse(status_code=400, content={"ok": False, "detail": str(exc)})
 
@@ -101,19 +138,53 @@ def create_app(service: Service, password: str = "") -> FastAPI:
             raise HTTPException(status_code=401, detail="未登录")
         return True
 
+    def _issue_token() -> JSONResponse:
+        token = secrets.token_urlsafe(24)
+        valid_tokens.add(token)
+        resp = JSONResponse({"ok": True})
+        resp.set_cookie("oci_token", token, httponly=True, samesite="lax")
+        return resp
+
     @app.get("/", response_class=HTMLResponse)
     async def index():
         return HTMLResponse(index_page)
 
     @app.post("/api/login")
     async def login(req: LoginReq):
-        if not password or secrets.compare_digest(req.password, password):
-            token = secrets.token_urlsafe(24)
-            valid_tokens.add(token)
-            resp = JSONResponse({"ok": True})
-            resp.set_cookie("oci_token", token, httponly=True, samesite="lax")
-            return resp
-        raise HTTPException(status_code=401, detail="口令错误")
+        if not password:
+            return _issue_token()
+        user_ok = secrets.compare_digest(req.username or "", username or "")
+        pass_ok = secrets.compare_digest(req.password or "", password)
+        if user_ok and pass_ok:
+            return _issue_token()
+        raise HTTPException(status_code=401, detail="用户名或口令错误")
+
+    @app.post("/api/login/tg/send")
+    async def tg_send():
+        if not tg_login_enabled:
+            raise HTTPException(status_code=400, detail="未配置 Telegram 登录")
+        now = time.time()
+        if now - last_send["t"] < 55:
+            raise HTTPException(status_code=429, detail="发送太频繁，请稍后再试")
+        code = f"{secrets.randbelow(10**8):08d}"
+        tg_codes.clear()
+        tg_codes[code] = now + 300
+        last_send["t"] = now
+        text = (f"🔐 OCI Manager 登录验证码：{code}\n"
+                f"5 分钟内有效。若非本人操作请忽略本条消息。")
+        sent = await _tg_broadcast(tg_token, tg_admins, text)
+        if not sent:
+            raise HTTPException(status_code=500, detail="发送失败，请检查 bot token / admin_ids")
+        return {"ok": True}
+
+    @app.post("/api/login/tg/verify")
+    async def tg_verify(req: TgVerifyReq):
+        code = (req.code or "").strip()
+        exp = tg_codes.get(code)
+        if not exp or exp < time.time():
+            raise HTTPException(status_code=401, detail="验证码错误或已过期")
+        tg_codes.pop(code, None)
+        return _issue_token()
 
     @app.get("/api/accounts")
     async def accounts(_=Depends(check_auth)):

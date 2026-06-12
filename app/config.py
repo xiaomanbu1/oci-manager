@@ -58,7 +58,8 @@ class WebConfig:
     enabled: bool = True
     host: str = "0.0.0.0"
     port: int = 9527
-    # 简单的访问口令，留空则不鉴权（不建议公网裸跑）
+    # 登录用户名 + 访问口令，password 留空则不鉴权（不建议公网裸跑）
+    username: str = "admin"
     password: str = ""
 
 
@@ -129,6 +130,7 @@ def load_config(path: str = None) -> AppConfig:
         enabled=_envbool("OCI_MANAGER_WEB_ENABLED", web_raw.get("enabled", True)),
         host=env("OCI_MANAGER_WEB_HOST", web_raw.get("host", "0.0.0.0")),
         port=int(env("OCI_MANAGER_WEB_PORT", web_raw.get("port", 9527))),
+        username=env("OCI_MANAGER_WEB_USERNAME", web_raw.get("username", "admin")),
         password=env("OCI_MANAGER_WEB_PASSWORD", web_raw.get("password", "")),
     )
 

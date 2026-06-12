@@ -230,11 +230,42 @@
 
   /* login */
   #login{position:fixed;inset:0;background:var(--ink);display:flex;align-items:center;
-    justify-content:center;z-index:100;
-    background-image:radial-gradient(600px 300px at 50% 30%, rgba(245,166,35,.1), transparent 70%)}
-  #login .box{background:var(--panel);border:1px solid var(--line-2);border-radius:14px;padding:34px;width:330px;
-    box-shadow:0 20px 60px -20px #000}
-  #login h2{margin:0 0 20px;font-family:var(--mono);font-size:16px;display:flex;align-items:center;gap:9px}
+    justify-content:flex-end;z-index:100;overflow:hidden;
+    background-image:radial-gradient(700px 380px at 78% 38%, rgba(58,130,210,.14), transparent 70%)}
+  #login .termbg{position:absolute;inset:0;padding:26px 40px;font-family:var(--mono);font-size:12.5px;
+    line-height:1.85;color:#2f3a44;white-space:pre;overflow:hidden;
+    -webkit-mask-image:linear-gradient(90deg,#000 38%,transparent 64%);
+    mask-image:linear-gradient(90deg,#000 38%,transparent 64%);pointer-events:none;user-select:none}
+  #login .box{position:relative;background:linear-gradient(180deg,rgba(22,26,33,.92),rgba(16,19,25,.96));
+    border:1px solid var(--line-2);border-radius:18px;padding:38px 34px 32px;width:360px;margin-right:8%;
+    box-shadow:0 30px 80px -24px #000,0 0 0 1px rgba(255,255,255,.02) inset;backdrop-filter:blur(8px)}
+  #login .brand{text-align:center;margin-bottom:8px}
+  #login .blogo{width:60px;height:60px;border-radius:16px;margin:0 auto 14px;display:flex;align-items:center;
+    justify-content:center;font-family:var(--mono);font-weight:700;font-size:30px;color:#cfe6ff;
+    background:linear-gradient(150deg,#2b6fb0,#1b3a57);box-shadow:0 10px 28px -10px rgba(58,130,210,.7)}
+  #login .btitle{font-family:var(--mono);font-size:21px;font-weight:700;letter-spacing:.5px}
+  #login .btitle b{color:var(--blue)}
+  #login .bsub{color:var(--muted);font-size:12.5px;margin-top:5px}
+  .ltab{display:flex;background:var(--ink-2);border:1px solid var(--line);border-radius:11px;padding:4px;margin:22px 0 18px}
+  .ltab button{flex:1;border:0;background:transparent;color:var(--muted);padding:9px 0;border-radius:8px;
+    font-size:13.5px;cursor:pointer;font-family:inherit;transition:.18s;font-weight:600}
+  .ltab button.on{background:linear-gradient(135deg,#3a82d2,#2b6fb0);color:#eaf3ff;box-shadow:0 6px 16px -8px var(--blue)}
+  #login .field{margin-bottom:14px}
+  #login .field label{display:block;font-size:12px;color:var(--muted);margin-bottom:6px}
+  #login .ipt{position:relative}
+  #login .ipt input{width:100%;background:var(--ink-2);border:1px solid var(--line);border-radius:10px;
+    padding:12px 14px;color:var(--text);font-family:inherit;font-size:14px;transition:.18s}
+  #login .ipt input:focus{outline:0;border-color:var(--blue);box-shadow:0 0 0 3px rgba(58,130,210,.16)}
+  #login .bigbtn{width:100%;justify-content:center;padding:13px 0;font-size:14.5px;border-radius:11px;
+    background:linear-gradient(135deg,#3a82d2,#2566a8);color:#fff;font-weight:600;margin-top:4px}
+  #login .bigbtn:hover{filter:brightness(1.07);color:#fff}
+  #login .tgtip{color:var(--muted);font-size:12.5px;text-align:center;line-height:1.7;margin:6px 0 16px}
+  #login .resend{width:100%;justify-content:center;padding:9px 0;margin-top:9px;font-size:12.5px;
+    background:transparent;color:var(--muted)}
+  #login .tgmsg{margin-top:12px;text-align:center;font-size:12.5px;padding:9px;border-radius:9px;
+    background:rgba(58,182,109,.1);border:1px solid rgba(58,182,109,.3);color:var(--green)}
+  #login .codebox input{text-align:center;letter-spacing:7px;font-family:var(--mono);font-size:18px}
+  @media(max-width:680px){#login{justify-content:center} #login .box{margin:0} #login .termbg{display:none}}
   @media(max-width:560px){header{flex-wrap:wrap;gap:11px} header .stats{width:100%;margin:0;flex-wrap:wrap}
     nav.tabs{top:auto;position:static} .grid{grid-template-columns:1fr}}
 </style>
@@ -242,10 +273,36 @@
 <body>
 
 <div id="login" style="display:none">
+  <div class="termbg" id="termbg"></div>
   <div class="box">
-    <h2><span style="width:9px;height:9px;border-radius:3px;background:var(--amber);box-shadow:0 0 12px var(--amber)"></span>OCI Manager</h2>
-    <div class="field"><label>访问口令</label><input type="password" id="pw" autofocus></div>
-    <button class="btn primary" style="width:100%;justify-content:center" onclick="doLogin()">进入控制台</button>
+    <div class="brand">
+      <div class="blogo">O</div>
+      <div class="btitle">OCI<b>·</b>Manager</div>
+      <div class="bsub">多云管理 · 智能终端</div>
+    </div>
+    <div class="ltab">
+      <button id="tabPw" class="on" onclick="loginTab('pw')">密码登录</button>
+      <button id="tabTg" onclick="loginTab('tg')">Telegram</button>
+    </div>
+
+    <div id="paneePw">
+      <div class="field"><label>用户名</label><div class="ipt"><input id="lgUser" autocomplete="username" placeholder="用户名"></div></div>
+      <div class="field"><label>密码</label><div class="ipt"><input type="password" id="pw" autocomplete="current-password" placeholder="密码"></div></div>
+      <button class="btn bigbtn" onclick="doLogin()">登录 →</button>
+    </div>
+
+    <div id="paneeTg" style="display:none">
+      <div class="tgtip">点击发送验证码，验证码将发送到你绑定的 Telegram</div>
+      <div id="tgStep1">
+        <button class="btn bigbtn" onclick="sendTgCode()">✈ 发送验证码</button>
+      </div>
+      <div id="tgStep2" style="display:none">
+        <div class="field codebox"><div class="ipt"><input id="tgCode" maxlength="8" inputmode="numeric" placeholder="请输入 8 位验证码"></div></div>
+        <button class="btn bigbtn" onclick="tgVerify()">验证并登录 ✓</button>
+        <button class="btn resend" id="tgResend" onclick="sendTgCode()">重新发送</button>
+        <div class="tgmsg">验证码已发送到 Telegram</div>
+      </div>
+    </div>
   </div>
 </div>
 
@@ -429,22 +486,8 @@
 </div>
 
 <script>
-const OV={'z':{account:'DEFAULT',region:'us-ashburn-1',errors:{},
-  cost:[{month:'2026-05',amount:115.06,currency:'USD'},{month:'2026-06',amount:99.56,currency:'USD'}],
-  traffic:[{month:'2026-05',gb:3.22},{month:'2026-06',gb:3.73}],
-  subscription:{available:true,service_name:'CLOUDCM',status:'ACTIVE',start:'2026-05-18',end:'2026-06-16'},
-  quotas:{"\u5b9e\u4f8b\u914d\u989d": [{"label": "ARM\u6838\u5fc3\u6570\u91cf", "value": 4}, {"label": "\u5185\u5b58\u5927\u5c0f", "value": 24}, {"label": "standard-a2-core-count", "value": 8}, {"label": "standard-a2-memory-count", "value": 96}, {"label": "\u4e0a\u4e00\u4ee3AMD\u6838\u5fc3\u6570\u91cf", "value": 2}], "\u786c\u76d8\u914d\u989d": [{"label": "backup-count", "value": 5}, {"label": "free-backup-count", "value": 5}, {"label": "\u603b\u514d\u8d39\u786c\u76d8", "value": 200}, {"label": "\u603b\u786c\u76d8", "value": 200}, {"label": "volume-count", "value": 10000}, {"label": "volumes-per-group", "value": 32}], "\u7f51\u7edc\u914d\u989d": [{"label": "dhcp-option-count", "value": 300}, {"label": "drg-count", "value": 5}, {"label": "internet-gateway-count", "value": 1}, {"label": "\u5b50\u7f51\u6570\u91cf", "value": 300}, {"label": "VCN\u6570\u91cf", "value": 2}], "\u53ef\u8ba2\u9605\u5730\u533a\u6570\u91cf": [{"label": "subscribed-region-count", "value": 1}], "\u5bf9\u8c61\u5b58\u50a8": [{"label": "bucket-count", "value": 10000}, {"label": "storage-bytes", "value": 21474836480}]}}};
-const PROFILES={groups:[{region:'us-ashburn-1',accounts:[{name:'DEFAULT',ok:true,tenancy_name:'zuneaup038',user:'x',region:'us-ashburn-1'}]}]};
-const MOCK={'/api/accounts':{accounts:['DEFAULT']},'/api/overview':{overview:[{account:'z',total:1,running:1}]},
-  '/api/profiles':PROFILES,'/api/config/accounts':{accounts:[]},'/api/jobs':{jobs:[]}};
-const MOCK_INST={'DEFAULT':[{id:'i1',name:'instance-0912',state:'RUNNING',shape:'VM.Standard.E5.Flex',ocpus:24,memory_gb:27,region:'us-ashburn-1',public_ip:'149.118.142.231',boot_gb:47,boot_vpu:10,time_created:'2026-04-25T01:13:49Z'}]};
-window.fetch=async(path)=>{await new Promise(r=>setTimeout(r,80));let data={};
-  if(path.startsWith('/api/account_overview'))data=OV['z'];
-  else if(path.startsWith('/api/instances'))data={instances:MOCK_INST['DEFAULT']};
-  else if(MOCK[path])data=MOCK[path];else data={ok:true};
-  return {status:200,ok:true,json:async()=>data};};
-</script><script>
-const AUTH_REQUIRED = false;
+const AUTH_REQUIRED = true;
+const TG_LOGIN = true;
 let CUR_ACC = null;
 const CHEV = '<svg class="chev" viewBox="0 0 16 16" fill="none"><path d="M6 4l4 4-4 4" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>';
 
@@ -458,11 +501,60 @@ async function api(path, opt){
   return d;
 }
 function showLogin(){document.getElementById('login').style.display='flex';}
-async function doLogin(){
-  try{ await api('/api/login',{method:'POST',body:JSON.stringify({password:document.getElementById('pw').value})});
-    document.getElementById('login').style.display='none'; init();
-  }catch(e){toast('口令错误','err');}
+function loginTab(t){
+  const pw=t==='pw';
+  document.getElementById('tabPw').classList.toggle('on',pw);
+  document.getElementById('tabTg').classList.toggle('on',!pw);
+  document.getElementById('paneePw').style.display=pw?'':'none';
+  document.getElementById('paneeTg').style.display=pw?'none':'';
 }
+async function doLogin(){
+  try{ await api('/api/login',{method:'POST',body:JSON.stringify({
+      username:document.getElementById('lgUser').value,
+      password:document.getElementById('pw').value})});
+    document.getElementById('login').style.display='none'; init();
+  }catch(e){toast(e.message||'用户名或口令错误','err');}
+}
+let _tgTimer=null;
+async function sendTgCode(){
+  try{
+    await api('/api/login/tg/send',{method:'POST',body:JSON.stringify({})});
+    document.getElementById('tgStep1').style.display='none';
+    document.getElementById('tgStep2').style.display='';
+    document.getElementById('tgCode').focus();
+    let n=59; const btn=document.getElementById('tgResend');
+    btn.disabled=true; btn.textContent=`重新发送 (${n}s)`;
+    clearInterval(_tgTimer);
+    _tgTimer=setInterval(()=>{ n--; if(n<=0){clearInterval(_tgTimer);btn.disabled=false;btn.textContent='重新发送';}
+      else btn.textContent=`重新发送 (${n}s)`; },1000);
+  }catch(e){toast(e.message||'发送失败','err');}
+}
+async function tgVerify(){
+  try{
+    await api('/api/login/tg/verify',{method:'POST',body:JSON.stringify({code:document.getElementById('tgCode').value})});
+    clearInterval(_tgTimer);
+    document.getElementById('login').style.display='none'; init();
+  }catch(e){toast(e.message||'验证码错误','err');}
+}
+const TERM_LINES=`$ ssh root@10.0.0.22
+Welcome to Debian GNU/Linux 12 (bookworm)
+$ docker ps
+CONTAINER   IMAGE          STATUS        NAMES
+a1b2c3d4    oci-manager    Up 7 days     oci-manager
+$ free -h
+              total   used   free   avail
+Mem:           973Mi  430Mi  120Mi  430Mi
+$ uptime
+ up 128 days, load average: 0.42, 0.38, 0.35
+$ curl -s localhost:9527/health
+{ "status": "UP", "accounts": 3, "db": "ok" }
+$ oci compute instance list --all
+RUNNING  instance-0912  149.118.142.231
+$ df -h /
+/dev/sda1  100G  42G  54G  44% /
+$ ping -c1 10.0.0.1
+64 bytes seq=1 time=0.41 ms
+`.repeat(3);
 function closeModal(id){document.getElementById(id).classList.remove('show');}
 
 // 自定义确认弹窗（替代丑陋的原生 confirm）
@@ -901,7 +993,16 @@ async function delConfigAcc(name){
   }catch(e){toast(e.message,'err');}
 }
 
-if(AUTH_REQUIRED){showLogin();document.getElementById('pw').addEventListener('keydown',e=>{if(e.key==='Enter')doLogin();});}
+if(AUTH_REQUIRED){
+  showLogin();
+  document.getElementById('termbg').textContent=TERM_LINES;
+  if(!TG_LOGIN){ document.getElementById('tabTg').style.display='none';
+    document.querySelector('.ltab').style.display='none'; }
+  document.getElementById('pw').addEventListener('keydown',e=>{if(e.key==='Enter')doLogin();});
+  document.getElementById('lgUser').addEventListener('keydown',e=>{if(e.key==='Enter')document.getElementById('pw').focus();});
+  const tc=document.getElementById('tgCode');
+  if(tc) tc.addEventListener('keydown',e=>{if(e.key==='Enter')tgVerify();});
+}
 else init();
 </script>
 <style>
@@ -914,5 +1015,7 @@ else init();
     color:#9aa3b2;white-space:pre-wrap;word-break:break-all}
   .term .ok{color:var(--green)} .term .err{color:var(--red)}
 </style>
-</body>
+<script>window.fetch=async(p,o)=>{await new Promise(r=>setTimeout(r,50));
+ if(p.includes('/tg/send'))return{status:200,ok:true,json:async()=>({ok:true})};
+ return{status:200,ok:true,json:async()=>({ok:true})};};</script></body>
 </html>

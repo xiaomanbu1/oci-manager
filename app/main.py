@@ -34,7 +34,7 @@ async def main():
 
     # Web
     if config.web.enabled:
-        app = create_app(service, password=config.web.password)
+        app = create_app(service, config)
         uconf = uvicorn.Config(app, host=config.web.host, port=config.web.port,
                                log_level="warning")
         server = uvicorn.Server(uconf)

@@ -412,32 +412,63 @@ class OciManager:
         out.sort(key=lambda x: x["month"])
         return out
 
-    def _limit_values(self, service: str) -> List[Dict]:
+    def _limit_map(self, service: str) -> Dict[str, int]:
+        """取某服务全部 limit，返回 {name: 值合计}。"""
         try:
             vals = oci.pagination.list_call_get_all_results(
                 self.limits.list_limit_values, self.compartment_id, service
             ).data
         except oci.exceptions.ServiceError as e:
             log.warning("取 %s 限额失败: %s", service, e)
-            return []
+            return {}
         agg: Dict[str, float] = {}
         for v in vals:
-            # 同一 limit 在多个可用域，取总和
             agg[v.name] = agg.get(v.name, 0) + (v.value or 0)
-        return [{"name": k, "value": int(val)} for k, val in sorted(agg.items())]
+        return {k: int(v) for k, v in agg.items()}
+
+    # 精选配额清单：(分类, 显示标签, 服务, limit 名)
+    QUOTA_SPEC = [
+        ("实例配额", "ARM核心数量", "compute", "vm-standard-a1-core-count"),
+        ("实例配额", "内存大小", "compute", "vm-standard-a1-memory-count"),
+        ("实例配额", "standard-a2-core-count", "compute", "standard-a2-core-count"),
+        ("实例配额", "standard-a2-memory-count", "compute", "standard-a2-memory-count"),
+        ("实例配额", "上一代AMD核心数量", "compute", "standard-e2-core-count"),
+        ("硬盘配额", "backup-count", "block-storage", "backup-count"),
+        ("硬盘配额", "free-backup-count", "block-storage", "free-backup-count"),
+        ("硬盘配额", "总免费硬盘", "block-storage", "total-free-storage-gb"),
+        ("硬盘配额", "总硬盘", "block-storage", "total-storage-gb"),
+        ("硬盘配额", "volume-count", "block-storage", "volume-count"),
+        ("硬盘配额", "volumes-per-group", "block-storage", "volumes-per-group"),
+        ("网络配额", "dhcp-option-count", "vcn", "dhcp-option-count"),
+        ("网络配额", "drg-count", "vcn", "drg-count"),
+        ("网络配额", "flow-log-config-count", "vcn", "flow-log-config-count"),
+        ("网络配额", "internet-gateway-count", "vcn", "internet-gateway-count"),
+        ("网络配额", "networksecuritygroups-count", "vcn", "networksecuritygroups-count"),
+        ("网络配额", "预留IP数量", "vcn", "public-ip-count"),
+        ("网络配额", "路由表数量", "vcn", "route-table-count"),
+        ("网络配额", "安全列表数量", "vcn", "security-list-count"),
+        ("网络配额", "securityrules-per-nsg-count", "vcn", "securityrules-per-networksecuritygroup-count"),
+        ("网络配额", "子网数量", "vcn", "subnet-count"),
+        ("网络配额", "VCN数量", "vcn", "vcn-count"),
+        ("可订阅地区数量", "subscribed-region-count", "regions", "subscribed-region-count"),
+        ("对象存储", "bucket-count", "object-storage", "bucket-count"),
+        ("对象存储", "storage-bytes", "object-storage", "storage-bytes"),
+    ]
 
     def quotas(self) -> Dict:
-        """计算/块存储 服务限额。"""
-        return {
-            "compute": self._limit_values("compute"),
-            "block_storage": self._limit_values("block-storage"),
-        }
+        """精选配额，按分类返回：{分类: [{label, value}]}。"""
+        services = {s for _, _, s, _ in self.QUOTA_SPEC}
+        maps = {s: self._limit_map(s) for s in services}
+        out: Dict[str, list] = {}
+        for cat, label, svc, name in self.QUOTA_SPEC:
+            val = maps.get(svc, {}).get(name)
+            if val is None:
+                continue  # 该 limit 不存在就不显示
+            out.setdefault(cat, []).append({"label": label, "value": val})
+        return out
 
     def subscription_info(self) -> Dict:
-        """
-        订阅信息（尽力而为）。免费/试用账号常常公共接口取不到完整信息，
-        取不到就返回 available=False，不伪造内部字段。
-        """
+        """订阅信息（尽力而为）。"""
         try:
             sc = oci.tenant_manager_control_plane.SubscriptionClient(self.config)
             data = sc.list_subscriptions(compartment_id=self.account.tenancy).data
@@ -446,12 +477,17 @@ class OciManager:
                 return {"available": False, "note": "无订阅记录（多为免费试用账号）"}
             s = items[0]
             d = oci.util.to_dict(s)
+            # 起止日期字段名因订阅类型而异，挨个试
+            start = (d.get("time_start") or d.get("start_date") or
+                     d.get("time_started") or d.get("time_created"))
+            end = (d.get("time_end") or d.get("end_date") or
+                   d.get("time_finish") or d.get("time_expiry"))
             return {
                 "available": True,
                 "service_name": d.get("service_name") or d.get("classic_subscription_id"),
                 "status": d.get("status") or d.get("lifecycle_state"),
-                "start": d.get("time_start"),
-                "end": d.get("time_end"),
+                "start": start,
+                "end": end,
                 "raw": d,
             }
         except Exception as e:
@@ -477,7 +513,7 @@ class OciManager:
             "tenancy_name": safe(self.tenancy_name, self.account.tenancy[-12:]),
             "cost": safe(lambda: self.monthly_cost(months), [], "cost"),
             "traffic": safe(lambda: self.monthly_traffic(months), [], "traffic"),
-            "quotas": safe(self.quotas, {"compute": [], "block_storage": []}),
+            "quotas": safe(self.quotas, {}),
             "subscription": safe(self.subscription_info, {"available": False}),
             "errors": errs,
         }

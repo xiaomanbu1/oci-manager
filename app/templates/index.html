@@ -131,7 +131,15 @@
   .sec-title::before{content:'';width:4px;height:16px;border-radius:3px;
     background:linear-gradient(var(--amber),#c47f12)}
   .sec-title .sub{color:var(--dim);font-weight:400;font-size:12px}
-  .ov-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:16px}
+  .ov-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:16px;align-items:start}
+  .ov-row.total{border-top:1px solid var(--line);margin-top:6px;padding-top:9px;font-weight:600}
+  .barrow{margin:10px 0}
+  .barhead{display:flex;justify-content:space-between;font-family:var(--mono);font-size:12.5px;margin-bottom:6px}
+  .barhead .lab{color:var(--muted)}
+  .bartrack{height:6px;background:var(--ink-2);border-radius:4px;overflow:hidden}
+  .barfill{height:100%;border-radius:4px;transition:width .4s ease}
+  .barfill.money{background:linear-gradient(90deg,#2c8f52,var(--green))}
+  .barfill.gb{background:linear-gradient(90deg,#3877bd,var(--blue))}
   .ov-card{position:relative;background:linear-gradient(180deg,var(--panel),#12151c);
     border:1px solid var(--line);border-radius:13px;padding:17px 18px 16px;
     box-shadow:var(--shadow);overflow:hidden;max-height:340px;overflow-y:auto}
@@ -478,11 +486,21 @@ function errMsg(s){
 }
 function renderOv(d){
   const er=d.errors||{};
+  const fmtNum=n=>Number(n).toLocaleString('en-US');
+  const bars=(rows)=>{
+    const max=Math.max(...rows.map(r=>r.value),0)||1;
+    return rows.map(r=>`<div class="barrow">
+      <div class="barhead"><span class="lab">${r.label}</span><span class="num ${r.cls}">${r.disp}</span></div>
+      <div class="bartrack"><div class="barfill ${r.cls}" style="width:${Math.max(6,r.value/max*100)}%"></div></div>
+    </div>`).join('');
+  };
   const cost=(d.cost||[]).length
-    ? d.cost.map(c=>`<div class="ov-row"><span class="lab">${c.month}</span><span class="num money">${c.currency} ${c.amount.toFixed(2)}</span></div>`).join('')
+    ? bars(d.cost.map(c=>({label:c.month,value:c.amount,disp:`${c.currency} ${c.amount.toFixed(2)}`,cls:'money'})))
+      +`<div class="ov-row total"><span class="lab">近${d.cost.length}月合计</span><span class="num money">${d.cost[0].currency} ${d.cost.reduce((s,c)=>s+c.amount,0).toFixed(2)}</span></div>`
     : `<div class="ov-row small"><span class="lab">${er.cost?errMsg(er.cost):'本月无消费记录（免费档通常为 0）'}</span></div>`;
   const traf=(d.traffic||[]).length
-    ? d.traffic.map(t=>`<div class="ov-row"><span class="lab">${t.month}</span><span class="num gb">${t.gb.toFixed(2)} GB</span></div>`).join('')
+    ? bars(d.traffic.map(t=>({label:t.month,value:t.gb,disp:`${t.gb.toFixed(2)} GB`,cls:'gb'})))
+      +`<div class="ov-row total"><span class="lab">近${d.traffic.length}月合计</span><span class="num gb">${d.traffic.reduce((s,t)=>s+t.gb,0).toFixed(2)} GB</span></div>`
     : `<div class="ov-row small"><span class="lab">${er.traffic?errMsg(er.traffic):'暂无流量计费记录'}</span></div>`;
   const s=d.subscription||{};
   let sub;
@@ -497,16 +515,13 @@ function renderOv(d){
     sub=`<div class="ov-row"><span class="lab">状态</span><span class="pill na">不可用</span></div>
       <div class="ov-row small"><span class="lab">${s.note||'公共接口不提供试用订阅明细'}</span></div>`;
   }
+  // 配额：分类显示（后端已精选）
   const q=d.quotas||{};
-  // 滤掉内部预留(reserved)和巨大哨兵值(>1亿)，按值降序，有用的排前面
-  const clean=arr=>(arr||[]).filter(x=>!/reserved/i.test(x.name) && x.value<100000000)
-                            .sort((x,y)=>y.value-x.value);
-  const comp=clean(q.compute), bs=clean(q.block_storage);
-  const qrow=x=>`<div class="ov-row small"><span class="lab">${x.name}</span><span class="num">${x.value}</span></div>`;
-  const quota=`<div class="ov-sub">实例配额</div>`
-    +(comp.length?comp.map(qrow).join(''):'<div class="ov-row small"><span class="lab">—</span></div>')
-    +`<div class="ov-sub">硬盘配额</div>`
-    +(bs.length?bs.map(qrow).join(''):'<div class="ov-row small"><span class="lab">—</span></div>');
+  const CATS=['实例配额','硬盘配额','网络配额','可订阅地区数量','对象存储'];
+  const qrow=x=>`<div class="ov-row small"><span class="lab">${x.label}</span><span class="num">${fmtNum(x.value)}</span></div>`;
+  let quota='';
+  CATS.forEach(cat=>{ if(q[cat]&&q[cat].length) quota+=`<div class="ov-sub">${cat}</div>`+q[cat].map(qrow).join(''); });
+  if(!quota) quota='<div class="ov-row small"><span class="lab">无配额数据</span></div>';
   return `
     <div class="ov-card c-cost"><h4><span class="ico"></span>成本 · ${d.account}</h4>${cost}</div>
     <div class="ov-card c-traf"><h4><span class="ico"></span>流量（估算）</h4>${traf}</div>
@@ -600,11 +615,18 @@ function card(x){
     </div></div>`;
 }
 async function act(id,action){
+  const x=INSTANCES[id]||{};
+  const NAMES={SOFTSTOP:'关机',STOP:'强制关机',SOFTRESET:'重启',RESET:'强制重启/修复',START:'开机'};
+  if(action!=='START'){
+    if(!confirm(`确认对实例「${x.name}」执行【${NAMES[action]||action}】？`))return;
+  }
   try{const d=await api('/api/action',{method:'POST',body:JSON.stringify({account:CUR_ACC,instance_id:id,action})});
     toast(d.msg,'ok');setTimeout(loadInstances,1500);
   }catch(e){toast(e.message,'err');}
 }
 async function chip(id){
+  const x=INSTANCES[id]||{};
+  if(!confirm(`确认给「${x.name}」更换公网 IP？\n当前 ${x.public_ip||'无IP'} 会被释放并重新分配一个新的。`))return;
   toast('换IP中，请稍候…');
   try{const d=await api('/api/chip',{method:'POST',body:JSON.stringify({account:CUR_ACC,instance_id:id})});
     toast(d.msg,'ok');setTimeout(loadInstances,1500);

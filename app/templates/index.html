@@ -841,10 +841,16 @@ function switchTab(v){
 async function init(){
   try{
     const {accounts} = await api('/api/accounts');
-    document.getElementById('accSel').innerHTML = accounts.map(a=>`<option>${a}</option>`).join('');
-    CUR_ACC = accounts[0];
+    const sel=document.getElementById('accSel');
+    if(accounts.length){
+      sel.innerHTML=accounts.map(a=>`<option>${a}</option>`).join('');
+      CUR_ACC=accounts[0];
+    }else{
+      sel.innerHTML='<option>（暂无账号）</option>';
+      CUR_ACC=null;
+    }
     loadHeaderStats(); loadProfiles();
-    if(CUR_ACC) loadAccountOverview();
+    loadAccountOverview();   // 无账号时显示友好提示，不再报 undefined
   }catch(e){ if(e.message!=='未登录') toast(e.message,'err'); }
 }
 async function loadHeaderStats(){
@@ -867,9 +873,17 @@ function onAccChange(){
 /* ====== 概览 ====== */
 async function loadAccountOverview(){
   const box=document.getElementById('ovStats');
+  if(!CUR_ACC){ box.innerHTML=noAccountHint(); return; }
   box.innerHTML='<div class="empty box">加载概览中…</div>';
   try{ box.innerHTML=renderOv(await api('/api/account_overview?account='+encodeURIComponent(CUR_ACC)));}
   catch(e){ box.innerHTML=`<div class="empty box">加载失败：${e.message}</div>`; }
+}
+function noAccountHint(){
+  return `<div class="empty box" style="padding:46px 22px;line-height:1.9">
+    <div style="font-size:15px;margin-bottom:4px">还没有任何 OCI 账号</div>
+    <div style="color:var(--muted);font-size:13px">请先到「配置」页粘贴 OCI 配置文本并上传 PEM 私钥</div>
+    <button class="btn primary sm" style="margin-top:16px" onclick="switchTab('config')">前往配置 →</button>
+  </div>`;
 }
 function errMsg(s){
   // 从 OCI 报错串里抽 status + code，截短显示
@@ -974,6 +988,7 @@ const badgeCls=s=>STATE_CLS[s]||'b-busy';
 let INSTANCES={};
 async function loadInstances(){
   const grid=document.getElementById('instGrid');
+  if(!CUR_ACC){ grid.innerHTML=noAccountHint(); return; }
   grid.innerHTML='<div class="empty">加载中…</div>';
   try{
     const {instances}=await api('/api/instances?account='+encodeURIComponent(CUR_ACC));
@@ -1094,6 +1109,7 @@ async function sshInfo(id){
 /* ====== 用户管理 ====== */
 async function loadUsers(){
   const box=document.getElementById('usersTable');
+  if(!CUR_ACC){ box.innerHTML=noAccountHint(); return; }
   box.innerHTML='<div class="empty">加载中…</div>';
   try{
     const {users}=await api('/api/users?account='+encodeURIComponent(CUR_ACC));
@@ -1248,8 +1264,9 @@ async function delConfigAcc(name){
 applyTheme();   // 进页面先应用主题（明暗/强调色）
 buildThemePop();
 applyLang();
+// 初始化登录页元素（默认隐藏）。刷新时若 cookie 仍有效会直接进入，无需重新登录；
+// 只有当 /api/accounts 返回 401 时，api() 才会自动弹出登录页。
 if(AUTH_REQUIRED){
-  showLogin();
   document.getElementById('termbg').textContent=TERM_LINES;
   if(!TG_LOGIN){ document.getElementById('tabTg').style.display='none';
     document.querySelector('.ltab').style.display='none'; }
@@ -1258,7 +1275,7 @@ if(AUTH_REQUIRED){
   const tc=document.getElementById('tgCode');
   if(tc) tc.addEventListener('keydown',e=>{if(e.key==='Enter')tgVerify();});
 }
-else init();
+init();   // 始终尝试加载：cookie 有效则直接进，无效则 api() 弹登录
 </script>
 <style>
   .job{background:var(--panel);border:1px solid var(--line);

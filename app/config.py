@@ -134,6 +134,27 @@ def load_config(path: str = None) -> AppConfig:
         password=env("OCI_MANAGER_WEB_PASSWORD", web_raw.get("password", "")),
     )
 
+    # 网页设置（data/settings.json）覆盖环境变量/yaml，使网页改的设置重启后仍生效
+    try:
+        from . import store
+        st = store.load_settings()
+    except Exception:
+        st = {}
+    if st:
+        if st.get("web_username"):
+            web.username = st["web_username"]
+        if "web_password" in st:
+            web.password = st["web_password"]
+        if "tg_enabled" in st:
+            telegram.enabled = bool(st["tg_enabled"])
+        if "tg_token" in st:
+            telegram.token = st["tg_token"]
+        if "tg_admin_ids" in st:
+            ids = st["tg_admin_ids"]
+            if isinstance(ids, str):
+                ids = [x.strip() for x in ids.split(",") if x.strip()]
+            telegram.admin_ids = [str(x) for x in ids]
+
     return AppConfig(accounts=accounts, telegram=telegram, web=web)
 
 

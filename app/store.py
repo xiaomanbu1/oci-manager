@@ -13,6 +13,27 @@ log = logging.getLogger("oci_manager.store")
 
 DATA_DIR = os.environ.get("OCI_MANAGER_DATA", "data")
 ACCOUNTS_FILE = os.path.join(DATA_DIR, "accounts.json")
+SETTINGS_FILE = os.path.join(DATA_DIR, "settings.json")
+
+
+def load_settings() -> Dict:
+    """网页可改的设置（账号/密码/Telegram），覆盖环境变量。"""
+    if not os.path.exists(SETTINGS_FILE):
+        return {}
+    try:
+        with open(SETTINGS_FILE, "r", encoding="utf-8") as f:
+            return json.load(f)
+    except Exception as e:
+        log.error("读取 settings.json 失败: %s", e)
+        return {}
+
+
+def save_settings(data: Dict):
+    _ensure_dir()
+    tmp = SETTINGS_FILE + ".tmp"
+    with open(tmp, "w", encoding="utf-8") as f:
+        json.dump(data, f, ensure_ascii=False, indent=2)
+    os.replace(tmp, SETTINGS_FILE)
 
 
 def _ensure_dir():

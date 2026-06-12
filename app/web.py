@@ -46,6 +46,18 @@ class TgVerifyReq(BaseModel):
     code: str
 
 
+class AccountSettingReq(BaseModel):
+    current_password: str = ""
+    new_username: str | None = None
+    new_password: str | None = None
+
+
+class TgSettingReq(BaseModel):
+    enabled: bool = False
+    token: str = ""
+    admin_ids: str = ""
+
+
 class UserReq(BaseModel):
     account: str
     user_id: str
@@ -105,25 +117,28 @@ def create_app(service: Service, config=None, password: str = "") -> FastAPI:
     app = FastAPI(title="OCI Manager")
     valid_tokens: set = set()
 
-    # 兼容：可传完整 config，或仅传 password（老调用）
+    # 可变鉴权状态：网页改设置时直接改这里，无需重启
     if config is not None:
-        password = config.web.password
-        username = config.web.username
-        tg_token = config.telegram.token if config.telegram.enabled else ""
-        tg_admins = [str(a) for a in (config.telegram.admin_ids or [])]
+        AUTH = {
+            "username": config.web.username,
+            "password": config.web.password,
+            "tg_token": config.telegram.token if config.telegram.enabled else "",
+            "tg_admins": [str(a) for a in (config.telegram.admin_ids or [])],
+            "tg_enabled": bool(config.telegram.enabled),
+        }
     else:
-        username, tg_token, tg_admins = "admin", "", []
-    tg_login_enabled = bool(password and tg_token and tg_admins)
+        AUTH = {"username": "admin", "password": password, "tg_token": "",
+                "tg_admins": [], "tg_enabled": False}
+
+    def tg_ok():
+        return bool(AUTH["password"] and AUTH["tg_enabled"] and AUTH["tg_token"] and AUTH["tg_admins"])
 
     import time
-    tg_codes: dict = {}        # code -> 过期时间戳
+    tg_codes: dict = {}
     last_send = {"t": 0.0}
 
     with open(INDEX_HTML, "r", encoding="utf-8") as f:
         _index_template = f.read()
-    index_page = (_index_template
-                  .replace("__AUTH_REQUIRED__", "true" if password else "false")
-                  .replace("__TG_LOGIN__", "true" if tg_login_enabled else "false"))
 
     @app.exception_handler(Exception)
     async def biz_error(request: Request, exc: Exception):
@@ -131,7 +146,7 @@ def create_app(service: Service, config=None, password: str = "") -> FastAPI:
         return JSONResponse(status_code=400, content={"ok": False, "detail": str(exc)})
 
     def check_auth(request: Request):
-        if not password:
+        if not AUTH["password"]:
             return True
         token = request.cookies.get("oci_token", "")
         if token not in valid_tokens:
@@ -147,21 +162,25 @@ def create_app(service: Service, config=None, password: str = "") -> FastAPI:
 
     @app.get("/", response_class=HTMLResponse)
     async def index():
-        return HTMLResponse(index_page)
+        # 每次按当前鉴权状态渲染，设置改了立即生效
+        page = (_index_template
+                .replace("__AUTH_REQUIRED__", "true" if AUTH["password"] else "false")
+                .replace("__TG_LOGIN__", "true" if tg_ok() else "false"))
+        return HTMLResponse(page)
 
     @app.post("/api/login")
     async def login(req: LoginReq):
-        if not password:
+        if not AUTH["password"]:
             return _issue_token()
-        user_ok = secrets.compare_digest(req.username or "", username or "")
-        pass_ok = secrets.compare_digest(req.password or "", password)
+        user_ok = secrets.compare_digest(req.username or "", AUTH["username"] or "")
+        pass_ok = secrets.compare_digest(req.password or "", AUTH["password"])
         if user_ok and pass_ok:
             return _issue_token()
         raise HTTPException(status_code=401, detail="用户名或口令错误")
 
     @app.post("/api/login/tg/send")
     async def tg_send():
-        if not tg_login_enabled:
+        if not tg_ok():
             raise HTTPException(status_code=400, detail="未配置 Telegram 登录")
         now = time.time()
         if now - last_send["t"] < 55:
@@ -172,7 +191,7 @@ def create_app(service: Service, config=None, password: str = "") -> FastAPI:
         last_send["t"] = now
         text = (f"🔐 OCI Manager 登录验证码：{code}\n"
                 f"5 分钟内有效。若非本人操作请忽略本条消息。")
-        sent = await _tg_broadcast(tg_token, tg_admins, text)
+        sent = await _tg_broadcast(AUTH["tg_token"], AUTH["tg_admins"], text)
         if not sent:
             raise HTTPException(status_code=500, detail="发送失败，请检查 bot token / admin_ids")
         return {"ok": True}
@@ -185,6 +204,68 @@ def create_app(service: Service, config=None, password: str = "") -> FastAPI:
             raise HTTPException(status_code=401, detail="验证码错误或已过期")
         tg_codes.pop(code, None)
         return _issue_token()
+
+    @app.post("/api/logout")
+    async def logout(request: Request):
+        token = request.cookies.get("oci_token", "")
+        valid_tokens.discard(token)
+        resp = JSONResponse({"ok": True})
+        resp.delete_cookie("oci_token")
+        return resp
+
+    # ---------- 设置 ----------
+    @app.get("/api/settings")
+    async def get_settings(_=Depends(check_auth)):
+        return {
+            "username": AUTH["username"],
+            "has_password": bool(AUTH["password"]),
+            "tg_enabled": AUTH["tg_enabled"],
+            "tg_token": AUTH["tg_token"],
+            "tg_admin_ids": ",".join(AUTH["tg_admins"]),
+            "tg_login_ready": tg_ok(),
+        }
+
+    def _persist():
+        from . import store
+        store.save_settings({
+            "web_username": AUTH["username"],
+            "web_password": AUTH["password"],
+            "tg_enabled": AUTH["tg_enabled"],
+            "tg_token": AUTH["tg_token"],
+            "tg_admin_ids": AUTH["tg_admins"],
+        })
+
+    @app.post("/api/settings/account")
+    async def set_account(req: AccountSettingReq, _=Depends(check_auth)):
+        # 已设密码时，改密码需校验当前密码
+        if AUTH["password"] and not secrets.compare_digest(req.current_password or "", AUTH["password"]):
+            raise HTTPException(status_code=401, detail="当前密码不正确")
+        if req.new_username is not None and req.new_username.strip():
+            AUTH["username"] = req.new_username.strip()
+        if req.new_password is not None:
+            AUTH["password"] = req.new_password    # 允许设空=关闭鉴权
+        _persist()
+        valid_tokens.clear()                       # 改完所有人重新登录
+        return {"ok": True, "msg": "已保存，请用新凭据重新登录"}
+
+    @app.post("/api/settings/telegram")
+    async def set_telegram(req: TgSettingReq, _=Depends(check_auth)):
+        AUTH["tg_enabled"] = bool(req.enabled)
+        AUTH["tg_token"] = (req.token or "").strip()
+        ids = req.admin_ids or ""
+        AUTH["tg_admins"] = [x.strip() for x in ids.replace("，", ",").split(",") if x.strip()]
+        _persist()
+        return {"ok": True, "msg": "Telegram 设置已保存", "tg_login_ready": tg_ok()}
+
+    @app.post("/api/settings/telegram/test")
+    async def test_telegram(_=Depends(check_auth)):
+        if not (AUTH["tg_token"] and AUTH["tg_admins"]):
+            raise HTTPException(status_code=400, detail="请先填写 token 和管理员 ID")
+        ok = await _tg_broadcast(AUTH["tg_token"], AUTH["tg_admins"],
+                                 "✅ OCI Manager 测试消息：你的 Telegram 配置正常！")
+        if not ok:
+            raise HTTPException(status_code=500, detail="发送失败，检查 token/ID，且你需先对 bot 发过 /start")
+        return {"ok": True, "msg": "测试消息已发送，去 Telegram 查收"}
 
     @app.get("/api/accounts")
     async def accounts(_=Depends(check_auth)):

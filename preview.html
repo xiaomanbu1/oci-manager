@@ -15,8 +15,48 @@
     --blue:#5aa9f0; --cyan:#4fd1c5; --violet:#a78bfa;
     --mono:'IBM Plex Mono',ui-monospace,SFMono-Regular,Menlo,monospace;
     --sans:'Inter',system-ui,-apple-system,'PingFang SC','Microsoft YaHei',sans-serif;
-    --shadow:0 1px 0 rgba(255,255,255,.02) inset, 0 8px 24px -12px rgba(0,0,0,.6);
+    --shadow:0 1px 0 rgba(255,255,255,.02) inset, 0 1px 2px rgba(0,0,0,.18);
   }
+  /* ===== 强调色主题（换 --amber） ===== */
+  [data-accent="blue"]{--amber:#3a8ad6}
+  [data-accent="green"]{--amber:#2faa5f}
+  [data-accent="purple"]{--amber:#8b6cf0}
+  [data-accent="rose"]{--amber:#e85d80}
+  /* ===== 明亮模式 ===== */
+  [data-theme="light"]{
+    --ink:#eef1f6; --ink-2:#e5eaf1; --panel:#ffffff; --panel-2:#f4f7fb;
+    --panel-hi:#eaeff7; --line:#e2e7ef; --line-2:#d2dae6;
+    --text:#1b232f; --muted:#5d6a7c; --dim:#8b96a6;
+    --shadow:0 1px 2px rgba(20,40,80,.06);
+  }
+  [data-theme="light"] header{background:rgba(255,255,255,.82)!important}
+  [data-theme="light"] nav.tabs{background:rgba(255,255,255,.7)}
+  [data-theme="light"] .ov-card,[data-theme="light"] .card,[data-theme="light"] .form,
+  [data-theme="light"] .region,[data-theme="light"] .table-wrap,[data-theme="light"] .job{
+    background:var(--panel)!important}
+  [data-theme="light"] ::-webkit-scrollbar-thumb{background:#cbd4e0;border-color:var(--ink)}
+  [data-theme="light"] .bartrack{background:#e6ebf2}
+  [data-theme="light"] .modal{background:#fff}
+  [data-theme="light"] .barhead .lab,[data-theme="light"] .ov-sub{color:var(--dim)}
+  body{transition:background .25s,color .25s}
+  /* 设置页 */
+  .set-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:18px;align-items:start}
+  .set-card h3{margin:0 0 6px}
+  .switch-row{display:flex;align-items:center;justify-content:space-between}
+  .switch{position:relative;display:inline-block;width:44px;height:24px;flex-shrink:0}
+  .switch input{display:none}
+  .switch .slider{position:absolute;inset:0;background:var(--line-2);border-radius:24px;cursor:pointer;transition:.2s}
+  .switch .slider:before{content:"";position:absolute;width:18px;height:18px;left:3px;top:3px;background:#fff;
+    border-radius:50%;transition:.2s}
+  .switch input:checked+.slider{background:var(--amber)}
+  .switch input:checked+.slider:before{transform:translateX(20px)}
+  .theme-row{display:flex;gap:11px}
+  .swatch{width:34px;height:34px;border-radius:9px;border:2px solid var(--line-2);background:var(--c);
+    cursor:pointer;transition:.15s;position:relative}
+  .swatch:hover{transform:scale(1.08)}
+  .swatch.on{border-color:var(--text);box-shadow:0 0 0 3px var(--c)}
+  .swatch.on:after{content:"✓";position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
+    color:#fff;font-size:15px;font-weight:700;text-shadow:0 1px 2px rgba(0,0,0,.4)}
   *{box-sizing:border-box}
   html{scroll-behavior:smooth}
   body{margin:0;background:var(--ink);color:var(--text);font-family:var(--sans);
@@ -45,6 +85,30 @@
     padding:5px 11px;border-radius:7px}
   header .stats b{color:var(--green);font-weight:600}
   header .stats .s-stop{color:var(--red)}
+  /* 顶栏右侧控件 */
+  .topbar{display:flex;align-items:center;gap:8px}
+  .tb-menu{position:relative}
+  .tb-btn{display:flex;align-items:center;gap:6px;background:var(--panel-2);border:1px solid var(--line);
+    color:var(--text);padding:7px 11px;border-radius:9px;font-size:12.5px;cursor:pointer;
+    font-family:inherit;transition:.15s}
+  .tb-btn:hover{border-color:var(--amber);color:var(--amber)}
+  .tb-btn i{font-style:normal;color:var(--muted);font-size:10px}
+  .tb-btn .tdot{width:9px;height:9px;border-radius:50%;background:var(--amber)}
+  .tb-btn.logout:hover{border-color:var(--red);color:var(--red)}
+  .tb-icon{width:34px;height:34px;display:flex;align-items:center;justify-content:center;
+    background:var(--panel-2);border:1px solid var(--line);border-radius:9px;color:var(--text);
+    cursor:pointer;font-size:15px;transition:.15s}
+  .tb-icon:hover{border-color:var(--amber);color:var(--amber)}
+  .tb-pop{position:absolute;top:calc(100% + 7px);right:0;min-width:140px;background:var(--panel);
+    border:1px solid var(--line-2);border-radius:11px;padding:6px;z-index:50;display:none;
+    box-shadow:0 14px 36px -16px rgba(0,0,0,.6)}
+  .tb-menu.open .tb-pop{display:block}
+  .tb-pop button{display:flex;align-items:center;gap:9px;width:100%;text-align:left;background:none;
+    border:0;color:var(--text);padding:9px 11px;border-radius:8px;font-size:13px;cursor:pointer;
+    font-family:inherit;transition:.12s}
+  .tb-pop button:hover{background:var(--panel-hi)}
+  .tb-pop button.on{color:var(--amber)}
+  .tb-pop .pdot{width:12px;height:12px;border-radius:50%;flex-shrink:0}
   select{background:var(--panel-2);color:var(--text);border:1px solid var(--line-2);
     border-radius:8px;padding:8px 12px;font-family:var(--mono);font-size:13px;outline:none;
     transition:border-color .15s}
@@ -86,7 +150,7 @@
 
   /* 实例卡片 */
   .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(340px,1fr));gap:16px}
-  .card{background:linear-gradient(180deg,var(--panel),#12151c);border:1px solid var(--line);
+  .card{background:var(--panel);border:1px solid var(--line);
     border-radius:13px;padding:16px 17px;box-shadow:var(--shadow);transition:.18s}
   .card:hover{border-color:var(--line-2);transform:translateY(-2px)}
   .card .top{display:flex;align-items:center;gap:9px;margin-bottom:13px}
@@ -105,7 +169,7 @@
   .acts.grid3 .btn{justify-content:center;padding:7px 6px}
 
   /* 表单 */
-  .form{background:linear-gradient(180deg,var(--panel),#12151c);border:1px solid var(--line);
+  .form{background:var(--panel);border:1px solid var(--line);
     border-radius:13px;padding:22px;max-width:640px;box-shadow:var(--shadow)}
   .form h3{margin:0 0 5px;font-size:16px;font-weight:700}
   .form .hint{color:var(--muted);font-size:12.5px;margin-bottom:20px;line-height:1.6}
@@ -143,7 +207,7 @@
   .barfill{height:100%;border-radius:4px;transition:width .4s ease}
   .barfill.money{background:linear-gradient(90deg,#2c8f52,var(--green))}
   .barfill.gb{background:linear-gradient(90deg,#3877bd,var(--blue))}
-  .ov-card{position:relative;background:linear-gradient(180deg,var(--panel),#12151c);
+  .ov-card{position:relative;background:var(--panel);
     border:1px solid var(--line);border-radius:13px;padding:17px 18px 16px;
     box-shadow:var(--shadow);overflow:hidden;height:300px;display:flex;flex-direction:column}
   .ov-card h4{flex-shrink:0}
@@ -171,7 +235,7 @@
   .pill.na{background:rgba(139,148,163,.13);color:var(--muted)}
 
   /* Profile 区域分组（可折叠） */
-  .region{background:linear-gradient(180deg,var(--panel),#12151c);border:1px solid var(--line);
+  .region{background:var(--panel);border:1px solid var(--line);
     border-radius:13px;margin-bottom:13px;overflow:hidden;box-shadow:var(--shadow)}
   .region-head{display:flex;align-items:center;gap:11px;padding:13px 17px;cursor:pointer;
     font-family:var(--mono);font-size:13px;user-select:none;transition:background .15s}
@@ -192,7 +256,7 @@
   @media(max-width:600px){.prof-row{grid-template-columns:1fr auto;padding-left:44px}.prof-row .mono{display:none}}
 
   /* 数据表（用户管理） */
-  .table-wrap{background:linear-gradient(180deg,var(--panel),#12151c);border:1px solid var(--line);
+  .table-wrap{background:var(--panel);border:1px solid var(--line);
     border-radius:13px;overflow:hidden;box-shadow:var(--shadow)}
   table{width:100%;border-collapse:collapse;font-size:13px}
   thead th{text-align:left;padding:13px 16px;color:var(--dim);font-weight:500;font-size:11.5px;
@@ -310,15 +374,32 @@
   <div class="logo"><span class="dot"></span>OCI MANAGER <small>CONSOLE</small></div>
   <select id="accSel" onchange="onAccChange()"></select>
   <div class="stats" id="stats"></div>
+  <div class="topbar">
+    <div class="tb-menu" id="langMenu">
+      <button class="tb-btn" onclick="toggleMenu(event,'langMenu')">🌐 <span id="langLabel">简体中文</span> <i>▾</i></button>
+      <div class="tb-pop">
+        <button onclick="setLang('zh')">简体中文</button>
+        <button onclick="setLang('en')">English</button>
+      </div>
+    </div>
+    <div class="tb-menu" id="themeMenu">
+      <button class="tb-btn"><span class="tdot" id="tdotHead"></span> <span id="themeLabel">琥珀</span> <i>▾</i></button>
+      <div class="tb-pop" id="themePop"></div>
+    </div>
+    <button class="tb-icon" id="lightBtn" onclick="quickLight()" title="明暗切换">🌙</button>
+    <button class="tb-icon" onclick="switchTab('settings')" title="设置">⚙</button>
+    <button class="tb-btn logout" onclick="logout()">⎋ <span data-i18n="logout">退出</span></button>
+  </div>
 </header>
 
 <nav class="tabs">
-  <button class="on" data-v="overview" onclick="switchTab('overview')">概览</button>
-  <button data-v="instances" onclick="switchTab('instances')">实例</button>
-  <button data-v="users" onclick="switchTab('users')">用户管理</button>
-  <button data-v="grab" onclick="switchTab('grab')">抢机</button>
-  <button data-v="jobs" onclick="switchTab('jobs')">任务</button>
-  <button data-v="config" onclick="switchTab('config')">配置</button>
+  <button class="on" data-v="overview" data-i18n="overview" onclick="switchTab('overview')">概览</button>
+  <button data-v="instances" data-i18n="instances" onclick="switchTab('instances')">实例</button>
+  <button data-v="users" data-i18n="users" onclick="switchTab('users')">用户管理</button>
+  <button data-v="grab" data-i18n="grab" onclick="switchTab('grab')">抢机</button>
+  <button data-v="jobs" data-i18n="jobs" onclick="switchTab('jobs')">任务</button>
+  <button data-v="config" data-i18n="config" onclick="switchTab('config')">配置</button>
+  <button data-v="settings" data-i18n="settings" onclick="switchTab('settings')">设置</button>
 </nav>
 
 <main>
@@ -400,6 +481,56 @@
       <div>
         <div class="cfg-count" id="cfgCount">已配置 0 个 Profile</div>
         <div class="table-wrap" id="cfgList"></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 设置 -->
+  <section class="view" id="v-settings">
+    <div class="set-grid">
+      <div class="form set-card">
+        <h3>账号设置</h3>
+        <div class="hint">修改登录用户名和密码，保存后需用新凭据重新登录。密码留空 = 关闭鉴权（公网勿留空）。</div>
+        <div class="field"><label>用户名</label><input id="set_user" placeholder="admin"></div>
+        <div class="field"><label>当前密码</label><input type="password" id="set_curpw" placeholder="改密码时必填"></div>
+        <div class="field"><label>新密码</label><input type="password" id="set_newpw" placeholder="留空=不改密码"></div>
+        <div class="field"><label>确认新密码</label><input type="password" id="set_newpw2" placeholder="再输一遍新密码"></div>
+        <button class="btn primary" style="width:100%;justify-content:center" onclick="saveAccount()">保存账号设置</button>
+      </div>
+
+      <div class="form set-card">
+        <h3>Telegram 机器人</h3>
+        <div class="hint">配置后登录页会出现「Telegram」验证码登录；机器人也用于推送。需先在 TG 里给你的 bot 发过 <span class="mono">/start</span>，它才能私信你。</div>
+        <div class="field switch-row">
+          <label style="margin:0">启用 Telegram 登录/推送</label>
+          <label class="switch"><input type="checkbox" id="set_tg_en"><span class="slider"></span></label>
+        </div>
+        <div class="field"><label>Bot Token</label><input id="set_tg_token" placeholder="123456:ABC-DEF..." spellcheck="false"></div>
+        <div class="field"><label>管理员 TG 数字 ID（多个逗号隔开）</label><input id="set_tg_admins" placeholder="123456789, 987654321" spellcheck="false"></div>
+        <div style="display:flex;gap:9px">
+          <button class="btn primary" style="flex:1;justify-content:center" onclick="saveTelegram()">保存</button>
+          <button class="btn" style="flex:1;justify-content:center" onclick="testTelegram()">发送测试消息</button>
+        </div>
+        <div class="hint" style="margin-top:8px">不知道自己的数字 ID？在 TG 里给 <span class="mono">@userinfobot</span> 发条消息即可获取。</div>
+      </div>
+
+      <div class="form set-card">
+        <h3>外观</h3>
+        <div class="hint">切换明暗模式和强调色主题，设置保存在本地浏览器。</div>
+        <div class="field switch-row">
+          <label style="margin:0">明亮模式</label>
+          <label class="switch"><input type="checkbox" id="set_light" onchange="toggleLight(this.checked)"><span class="slider"></span></label>
+        </div>
+        <div class="field">
+          <label>强调色主题</label>
+          <div class="theme-row" id="themeRow">
+            <button class="swatch" data-a="amber"  style="--c:#f5a623" onclick="setAccent('amber')"></button>
+            <button class="swatch" data-a="blue"   style="--c:#3a8ad6" onclick="setAccent('blue')"></button>
+            <button class="swatch" data-a="green"  style="--c:#2faa5f" onclick="setAccent('green')"></button>
+            <button class="swatch" data-a="purple" style="--c:#8b6cf0" onclick="setAccent('purple')"></button>
+            <button class="swatch" data-a="rose"   style="--c:#e85d80" onclick="setAccent('rose')"></button>
+          </div>
+        </div>
       </div>
     </div>
   </section>
@@ -486,8 +617,8 @@
 </div>
 
 <script>
-const AUTH_REQUIRED = true;
-const TG_LOGIN = true;
+const AUTH_REQUIRED = false;
+const TG_LOGIN = false;
 let CUR_ACC = null;
 const CHEV = '<svg class="chev" viewBox="0 0 16 16" fill="none"><path d="M6 4l4 4-4 4" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>';
 
@@ -557,6 +688,126 @@ $ ping -c1 10.0.0.1
 `.repeat(3);
 function closeModal(id){document.getElementById(id).classList.remove('show');}
 
+/* ===== 外观主题（存 localStorage） ===== */
+const THEMES=[
+  {a:'amber',name:'琥珀',en:'Amber',c:'#f5a623'},{a:'blue',name:'海蓝',en:'Ocean',c:'#3a8ad6'},
+  {a:'green',name:'翠绿',en:'Emerald',c:'#2faa5f'},{a:'purple',name:'暗紫',en:'Violet',c:'#8b6cf0'},
+  {a:'rose',name:'樱花',en:'Sakura',c:'#e85d80'}];
+function themeName(th){ return LANG==='en'? th.en : th.name; }
+function lsGet(k,d){try{return localStorage.getItem(k)??d}catch(e){return d}}
+function lsSet(k,v){try{localStorage.setItem(k,v)}catch(e){}}
+function applyTheme(){
+  const light=lsGet('oci_light','0')==='1';
+  const accent=lsGet('oci_accent','amber');
+  document.body.dataset.theme=light?'light':'dark';
+  document.body.dataset.accent=accent;
+  const th=THEMES.find(t=>t.a===accent)||THEMES[0];
+  const hl=document.getElementById('themeLabel'); if(hl) hl.textContent=themeName(th);
+  const hd=document.getElementById('tdotHead'); if(hd) hd.style.background=th.c;
+  const lb=document.getElementById('lightBtn'); if(lb) lb.textContent=light?'☀':'🌙';
+  // 设置页镜像
+  const lt=document.getElementById('set_light'); if(lt) lt.checked=light;
+  document.querySelectorAll('.swatch').forEach(s=>s.classList.toggle('on',s.dataset.a===accent));
+}
+function quickLight(){ lsSet('oci_light', lsGet('oci_light','0')==='1'?'0':'1'); applyTheme(); }
+function toggleLight(on){ lsSet('oci_light',on?'1':'0'); applyTheme(); }
+function setAccent(a){ lsSet('oci_accent',a); applyTheme(); buildThemePop(); }
+function buildThemePop(){
+  const pop=document.getElementById('themePop'); if(!pop)return;
+  const cur=lsGet('oci_accent','amber');
+  pop.innerHTML=THEMES.map(t=>`<button class="${t.a===cur?'on':''}" onclick="setAccent('${t.a}');closeMenus()">
+    <span class="pdot" style="background:${t.c}"></span>${themeName(t)}</button>`).join('');
+}
+function toggleMenu(e,id){ e.stopPropagation();
+  const m=document.getElementById(id); const wasOpen=m.classList.contains('open');
+  closeMenus(); if(!wasOpen) m.classList.add('open');
+}
+function closeMenus(){ document.querySelectorAll('.tb-menu').forEach(m=>m.classList.remove('open')); }
+document.addEventListener('click',closeMenus);
+// 主题菜单点按钮也要能开（按钮没绑 toggleMenu，这里补）
+document.addEventListener('DOMContentLoaded',()=>{
+  const tm=document.getElementById('themeMenu');
+  if(tm) tm.querySelector('.tb-btn').addEventListener('click',e=>toggleMenu(e,'themeMenu'));
+});
+
+/* ===== 语言 i18n ===== */
+const I18N={
+  zh:{logout:'退出',overview:'概览',instances:'实例',users:'用户管理',grab:'抢机',jobs:'任务',
+    config:'配置',settings:'设置',acct_set:'账号设置',tg_set:'Telegram 机器人',appearance:'外观',
+    light_mode:'明亮模式',accent:'强调色主题',username:'用户名',cur_pw:'当前密码',new_pw:'新密码',
+    confirm_pw:'确认新密码',save_acct:'保存账号设置',save:'保存',send_test:'发送测试消息',
+    tg_enable:'启用 Telegram 登录/推送',bot_token:'Bot Token',admin_ids:'管理员 TG 数字 ID（多个逗号隔开）',
+    lang:'简体中文',refresh:'刷新'},
+  en:{logout:'Logout',overview:'Overview',instances:'Instances',users:'Users',grab:'Grab',jobs:'Jobs',
+    config:'Config',settings:'Settings',acct_set:'Account',tg_set:'Telegram Bot',appearance:'Appearance',
+    light_mode:'Light mode',accent:'Accent theme',username:'Username',cur_pw:'Current password',new_pw:'New password',
+    confirm_pw:'Confirm password',save_acct:'Save account',save:'Save',send_test:'Send test message',
+    tg_enable:'Enable Telegram login / push',bot_token:'Bot Token',admin_ids:'Admin TG numeric IDs (comma separated)',
+    lang:'English',refresh:'Refresh'}
+};
+let LANG=lsGet('oci_lang','zh');
+function t(k){ return (I18N[LANG]&&I18N[LANG][k])||(I18N.zh[k])||k; }
+function applyLang(){
+  document.documentElement.lang = LANG==='en'?'en':'zh-CN';
+  document.querySelectorAll('[data-i18n]').forEach(el=>{ el.textContent=t(el.dataset.i18n); });
+  const ll=document.getElementById('langLabel'); if(ll) ll.textContent=t('lang');
+  applyTheme(); buildThemePop();
+}
+function setLang(l){ LANG=l; lsSet('oci_lang',l); applyLang(); closeMenus(); }
+
+/* ===== 退出 ===== */
+async function logout(){
+  if(!await customConfirm('确认退出登录？',{danger:true,title:t('logout'),okText:t('logout')}))return;
+  try{ await fetch('/api/logout',{method:'POST'}); }catch(e){}
+  location.reload();
+}
+
+/* ===== 设置页 ===== */
+async function loadSettings(){
+  try{
+    const s=await api('/api/settings');
+    document.getElementById('set_user').value=s.username||'';
+    document.getElementById('set_curpw').value='';
+    document.getElementById('set_newpw').value='';
+    document.getElementById('set_newpw2').value='';
+    document.getElementById('set_tg_en').checked=!!s.tg_enabled;
+    document.getElementById('set_tg_token').value=s.tg_token||'';
+    document.getElementById('set_tg_admins').value=s.tg_admin_ids||'';
+  }catch(e){ toast(e.message,'err'); }
+  applyTheme();
+}
+async function saveAccount(){
+  const np=document.getElementById('set_newpw').value, np2=document.getElementById('set_newpw2').value;
+  if(np!==np2){ toast('两次新密码不一致','err'); return; }
+  const body={
+    current_password:document.getElementById('set_curpw').value,
+    new_username:document.getElementById('set_user').value,
+  };
+  if(np!=='') body.new_password=np;        // 留空则不改密码
+  try{
+    const d=await api('/api/settings/account',{method:'POST',body:JSON.stringify(body)});
+    toast(d.msg||'已保存','ok');
+    if(np!==''){ setTimeout(()=>{showLogin();},1200); }   // 改了密码就回登录页
+  }catch(e){ toast(e.message,'err'); }
+}
+async function saveTelegram(){
+  const body={
+    enabled:document.getElementById('set_tg_en').checked,
+    token:document.getElementById('set_tg_token').value,
+    admin_ids:document.getElementById('set_tg_admins').value,
+  };
+  try{
+    const d=await api('/api/settings/telegram',{method:'POST',body:JSON.stringify(body)});
+    toast(d.msg+(d.tg_login_ready?'，登录页已启用 Telegram':''),'ok');
+  }catch(e){ toast(e.message,'err'); }
+}
+async function testTelegram(){
+  toast('发送中…');
+  try{ const d=await api('/api/settings/telegram/test',{method:'POST',body:JSON.stringify({})});
+    toast(d.msg,'ok');
+  }catch(e){ toast(e.message,'err'); }
+}
+
 // 自定义确认弹窗（替代丑陋的原生 confirm）
 let _cfResolve=null;
 function customConfirm(msg,opts){
@@ -584,6 +835,7 @@ function switchTab(v){
   if(v==='instances') loadInstances();
   if(v==='users') loadUsers();
   if(v==='config') loadConfigAccounts();
+  if(v==='settings') loadSettings();
 }
 
 async function init(){
@@ -993,6 +1245,9 @@ async function delConfigAcc(name){
   }catch(e){toast(e.message,'err');}
 }
 
+applyTheme();   // 进页面先应用主题（明暗/强调色）
+buildThemePop();
+applyLang();
 if(AUTH_REQUIRED){
   showLogin();
   document.getElementById('termbg').textContent=TERM_LINES;
@@ -1006,7 +1261,7 @@ if(AUTH_REQUIRED){
 else init();
 </script>
 <style>
-  .job{background:linear-gradient(180deg,var(--panel),#12151c);border:1px solid var(--line);
+  .job{background:var(--panel);border:1px solid var(--line);
     border-radius:13px;padding:15px 17px;margin-bottom:13px;box-shadow:var(--shadow)}
   .job .jhead{display:flex;align-items:center;gap:11px;margin-bottom:11px;font-size:13px}
   .job .jstatus{font-family:var(--mono);font-size:11px;padding:2px 9px;border-radius:5px;font-weight:600}
@@ -1015,7 +1270,20 @@ else init();
     color:#9aa3b2;white-space:pre-wrap;word-break:break-all}
   .term .ok{color:var(--green)} .term .err{color:var(--red)}
 </style>
-<script>window.fetch=async(p,o)=>{await new Promise(r=>setTimeout(r,50));
- if(p.includes('/tg/send'))return{status:200,ok:true,json:async()=>({ok:true})};
- return{status:200,ok:true,json:async()=>({ok:true})};};</script></body>
+<script>
+const _SET={username:'admin',has_password:true,tg_enabled:true,tg_token:'7891234:AAExampleBotToken',tg_admin_ids:'123456789'};
+const OV={account:'DEFAULT',region:'us-ashburn-1',errors:{},
+ cost:[{month:'2026-05',amount:115.06,currency:'USD'},{month:'2026-06',amount:99.56,currency:'USD'}],
+ traffic:[{month:'2026-05',gb:3.22},{month:'2026-06',gb:3.73}],
+ subscription:{available:true,service_name:'CLOUDCM',status:'ACTIVE',start:'2026-05-18',end:'2026-06-16'},quotas:{"\u5b9e\u4f8b\u914d\u989d": [{"label": "ARM\u6838\u5fc3\u6570\u91cf", "value": 4}, {"label": "\u5185\u5b58\u5927\u5c0f", "value": 24}, {"label": "standard-a2-core-count", "value": 8}, {"label": "standard-a2-memory-count", "value": 96}, {"label": "\u4e0a\u4e00\u4ee3AMD\u6838\u5fc3\u6570\u91cf", "value": 2}], "\u786c\u76d8\u914d\u989d": [{"label": "backup-count", "value": 5}, {"label": "free-backup-count", "value": 5}, {"label": "\u603b\u514d\u8d39\u786c\u76d8", "value": 200}, {"label": "\u603b\u786c\u76d8", "value": 200}, {"label": "volume-count", "value": 10000}, {"label": "volumes-per-group", "value": 32}], "\u7f51\u7edc\u914d\u989d": [{"label": "VCN\u6570\u91cf", "value": 2}, {"label": "\u5b50\u7f51\u6570\u91cf", "value": 300}], "\u5bf9\u8c61\u5b58\u50a8": [{"label": "bucket-count", "value": 10000}]}};
+window.fetch=async(p,o)=>{await new Promise(r=>setTimeout(r,30));let d={};
+ if(p.startsWith('/api/settings'))d=_SET;
+ else if(p==='/api/accounts')d={accounts:['DEFAULT']};
+ else if(p==='/api/overview')d={overview:[{account:'z',total:1,running:1}]};
+ else if(p.startsWith('/api/profiles'))d={groups:[{region:'us-ashburn-1',accounts:[{name:'DEFAULT',ok:true,tenancy_name:'zuneaup038',user:'x',region:'us-ashburn-1'}]}]};
+ else if(p.startsWith('/api/account_overview'))d=OV;
+ else if(p.startsWith('/api/instances'))d={instances:[{"id": "i1", "name": "instance-20260425-0912", "state": "RUNNING", "shape": "VM.Standard.E5.Flex", "ocpus": 24, "memory_gb": 27, "region": "us-ashburn-1", "public_ip": "149.118.142.231", "boot_gb": 47, "boot_vpu": 10, "time_created": "2026-04-25T01:13:49Z"}]};
+ else d={ok:true,msg:'（预览）已模拟'};
+ return{status:200,ok:true,json:async()=>d};};
+</script></body>
 </html>

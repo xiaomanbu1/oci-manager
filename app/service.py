@@ -193,6 +193,32 @@ class Service:
         self.config.accounts = [a for a in self.config.accounts if a.name != name]
         return True
 
+    def delete_accounts(self, names: list) -> int:
+        n = 0
+        for name in names:
+            if self.delete_account(name):
+                n += 1
+        return n
+
+    def rename_account(self, old: str, new: str) -> bool:
+        from . import store
+        new = (new or "").strip()
+        ok = store.rename_account(old, new)
+        if not ok:
+            raise KeyError(f"账号「{old}」不存在")
+        # 同步内存：manager / 错误表 / config
+        mgr = self._managers.pop(old, None)
+        err = self._errors.pop(old, None)
+        for a in self.config.accounts:
+            if a.name == old:
+                a.name = new
+        if mgr is not None:
+            mgr.account.name = new
+            self._managers[new] = mgr
+        elif err is not None:
+            self._errors[new] = err
+        return True
+
     # ---------- 抢机任务 ----------
     def start_grab(self, account: str, params: dict) -> str:
         mgr = self.manager(account)

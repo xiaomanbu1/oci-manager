@@ -75,6 +75,15 @@ class ConfigDelReq(BaseModel):
     name: str
 
 
+class AccountRenameReq(BaseModel):
+    old: str
+    new: str
+
+
+class AccountDeleteBatchReq(BaseModel):
+    names: list[str]
+
+
 class RenameReq(BaseModel):
     account: str
     instance_id: str
@@ -300,6 +309,18 @@ def create_app(service: Service, config=None, password: str = "") -> FastAPI:
         import asyncio
         await asyncio.to_thread(service.delete_account, req.name)
         return {"ok": True}
+
+    @app.post("/api/account/rename")
+    async def account_rename(req: AccountRenameReq, _=Depends(check_auth)):
+        import asyncio
+        await asyncio.to_thread(service.rename_account, req.old, req.new)
+        return {"ok": True, "msg": f"已重命名为 {req.new}"}
+
+    @app.post("/api/account/delete_batch")
+    async def account_delete_batch(req: AccountDeleteBatchReq, _=Depends(check_auth)):
+        import asyncio
+        n = await asyncio.to_thread(service.delete_accounts, req.names)
+        return {"ok": True, "msg": f"已删除 {n} 个账号"}
 
     @app.get("/api/account_overview")
     async def account_overview(account: str, months: int = 3, _=Depends(check_auth)):

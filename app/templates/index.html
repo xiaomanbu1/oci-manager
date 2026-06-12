@@ -213,7 +213,7 @@
   .ov-card h4{flex-shrink:0}
   .ov-body{flex:1;min-height:0;display:flex;flex-direction:column;justify-content:space-between}
   .ov-body.scroll{justify-content:flex-start;display:block;overflow-y:auto}
-  .ov-body.compact{justify-content:center;gap:4px}
+  .ov-body.compact{justify-content:flex-start;gap:2px}
   .ov-body.scroll::-webkit-scrollbar{width:7px}
   .ov-card::before{content:'';position:absolute;top:0;left:0;right:0;height:2px;
     background:var(--cat,var(--amber));opacity:.85}
@@ -250,11 +250,14 @@
     background:var(--ink-2);padding:3px 9px;border-radius:11px;border:1px solid var(--line)}
   .region-body{max-height:0;overflow:hidden;transition:max-height .28s ease}
   .region.open .region-body{max-height:1200px}
-  .prof-row{display:grid;grid-template-columns:1.4fr 1fr 1fr auto;gap:12px;align-items:center;
+  .prof-row{display:grid;grid-template-columns:auto 1.4fr 1fr 1fr auto;gap:12px;align-items:center;
     padding:12px 17px 12px 44px;border-top:1px solid var(--line);font-size:13px}
   .prof-row .pname{font-weight:500} .prof-row .mono{font-family:var(--mono);color:var(--muted);font-size:12px}
   .prof-row.bad .pname{color:var(--red)}
-  @media(max-width:600px){.prof-row{grid-template-columns:1fr auto;padding-left:44px}.prof-row .mono{display:none}}
+  .prof-row .pacts{display:flex;gap:6px}
+  .prof-tools{display:flex;align-items:center;gap:14px;margin-bottom:11px;font-size:13px;color:var(--muted)}
+  .prof-tools label{display:flex;align-items:center;gap:6px;cursor:pointer}
+  @media(max-width:600px){.prof-row{grid-template-columns:auto 1fr auto;padding-left:44px}.prof-row .mono{display:none}}
 
   /* 数据表（用户管理） */
   .table-wrap{background:var(--panel);border:1px solid var(--line);
@@ -912,16 +915,21 @@ function renderOv(d){
       +`<div class="ov-row total"><span class="lab">近${d.traffic.length}月合计</span><span class="num gb">${d.traffic.reduce((s,t)=>s+t.gb,0).toFixed(2)} GB</span></div>`
     : `<div class="ov-row small"><span class="lab">${er.traffic?errMsg(er.traffic):'暂无流量计费记录'}</span></div>`;
   const s=d.subscription||{};
+  const regCN=(typeof REGION_CN!=='undefined'&&REGION_CN[d.home_region])||'';
+  const acctRows=`<div class="ov-row"><span class="lab">租户</span><span class="num" title="${d.tenancy_name||''}">${d.tenancy_name||'—'}</span></div>
+      <div class="ov-row small"><span class="lab">Home 区域</span><span class="num">${d.home_region||'—'}${regCN?' '+regCN:''}</span></div>`;
   let sub;
   if(s.available){
     const st=(s.status||'').toUpperCase();
     const cls=st.includes('EXPIR')?'exp':(st.includes('ACTIVE')?'act':'na');
-    sub=`<div class="ov-row"><span class="lab">服务</span><span class="num">${s.service_name||'—'}</span></div>
+    sub=acctRows
+      +`<div class="ov-row"><span class="lab">服务</span><span class="num">${s.service_name||'—'}</span></div>
       <div class="ov-row"><span class="lab">状态</span><span class="pill ${cls}">${s.status||'—'}</span></div>
       <div class="ov-row small"><span class="lab">开始</span><span class="num">${(s.start||'—').toString().slice(0,10)}</span></div>
       <div class="ov-row small"><span class="lab">结束</span><span class="num">${(s.end||'—').toString().slice(0,10)}</span></div>`;
   }else{
-    sub=`<div class="ov-row"><span class="lab">状态</span><span class="pill na">不可用</span></div>
+    sub=acctRows
+      +`<div class="ov-row"><span class="lab">状态</span><span class="pill na">不可用</span></div>
       <div class="ov-row small"><span class="lab">${s.note||'公共接口不提供试用订阅明细'}</span></div>`;
   }
   // 配额：分类显示（后端已精选）
@@ -959,19 +967,27 @@ async function loadProfiles(){
   try{
     const {groups}=await api('/api/profiles');
     if(!groups.length){box.innerHTML='<div class="empty box">未配置账号</div>';return;}
-    if(OPEN_REGIONS.size===0 && groups[0]) OPEN_REGIONS.add(groups[0].region); // 默认展开第一个
-    box.innerHTML=groups.map(g=>{
+    if(OPEN_REGIONS.size===0 && groups[0]) OPEN_REGIONS.add(groups[0].region);
+    const tools=`<div class="prof-tools">
+      <label><input type="checkbox" id="profAll" onclick="toggleAllProf(this)"> 全选</label>
+      <button class="btn sm danger" onclick="deleteSelectedProf()">删除选中</button></div>`;
+    box.innerHTML=tools+groups.map(g=>{
       const cn=REGION_CN[g.region]||'';
       const open=OPEN_REGIONS.has(g.region)?' open':'';
       const rows=g.accounts.map(a=>{
-        if(!a.ok) return `<div class="prof-row bad">
+        const chk=`<input type="checkbox" class="prof-chk" value="${a.name}">`;
+        if(!a.ok) return `<div class="prof-row bad">${chk}
           <span class="pname">${a.name}</span><span class="mono">${a.error||''}</span>
-          <span class="mono">${a.region}</span><span></span></div>`;
-        return `<div class="prof-row">
+          <span class="mono">${a.region}</span>
+          <span class="pacts"><button class="btn sm" onclick="renameAccount('${a.name}')">改名</button>
+          <button class="btn sm danger" onclick="deleteAccount('${a.name}')">删除</button></span></div>`;
+        return `<div class="prof-row">${chk}
           <span class="pname">${a.name}</span>
           <span class="mono">${a.tenancy_name||a.user.slice(-10)}</span>
           <span class="mono">${a.region}</span>
-          <button class="btn sm" onclick="gotoOv('${a.name}')">概览</button></div>`;
+          <span class="pacts"><button class="btn sm" onclick="gotoOv('${a.name}')">概览</button>
+          <button class="btn sm" onclick="renameAccount('${a.name}')">改名</button>
+          <button class="btn sm danger" onclick="deleteAccount('${a.name}')">删除</button></span></div>`;
       }).join('');
       return `<div class="region${open}" data-r="${g.region}">
         <div class="region-head" onclick="toggleRegion('${g.region}')">${CHEV}
@@ -981,6 +997,45 @@ async function loadProfiles(){
         <div class="region-body">${rows}</div></div>`;
     }).join('');
   }catch(e){box.innerHTML=`<div class="empty box">${e.message}</div>`;}
+}
+function toggleAllProf(cb){ document.querySelectorAll('.prof-chk').forEach(c=>c.checked=cb.checked); }
+async function renameAccount(name){
+  const nn=prompt('新账号名称：',name);
+  if(!nn||nn===name)return;
+  try{ const d=await api('/api/account/rename',{method:'POST',body:JSON.stringify({old:name,new:nn})});
+    toast(d.msg||'已改名','ok'); refreshAfterAccChange(name,nn);
+  }catch(e){ toast(e.message,'err'); }
+}
+async function deleteAccount(name){
+  if(!await customConfirm(`删除账号「${name}」？会一并删除其私钥，且不可恢复。`,{danger:true,title:'删除账号',okText:'删除'}))return;
+  try{ await api('/api/config/delete',{method:'POST',body:JSON.stringify({name})});
+    toast('已删除','ok'); refreshAfterAccChange(name,null);
+  }catch(e){ toast(e.message,'err'); }
+}
+async function deleteSelectedProf(){
+  const names=[...document.querySelectorAll('.prof-chk:checked')].map(c=>c.value);
+  if(!names.length){ toast('请先勾选要删除的账号','err'); return; }
+  if(!await customConfirm(`确认删除选中的 ${names.length} 个账号？会一并删除私钥，不可恢复。`,{danger:true,title:'批量删除',okText:`删除 ${names.length} 个`}))return;
+  try{ const d=await api('/api/account/delete_batch',{method:'POST',body:JSON.stringify({names})});
+    toast(d.msg||'已删除','ok');
+    if(names.includes(CUR_ACC)) CUR_ACC=null;
+    refreshAccounts();
+  }catch(e){ toast(e.message,'err'); }
+}
+async function refreshAccounts(){
+  const {accounts}=await api('/api/accounts');
+  const sel=document.getElementById('accSel');
+  if(accounts.length){ sel.innerHTML=accounts.map(a=>`<option>${a}</option>`).join('');
+    if(!accounts.includes(CUR_ACC)) CUR_ACC=accounts[0];
+    sel.value=CUR_ACC;
+  }else{ sel.innerHTML='<option>（暂无账号）</option>'; CUR_ACC=null; }
+  loadHeaderStats(); loadProfiles();
+  const cur=document.querySelector('nav.tabs button.on')?.dataset.v;
+  if(cur==='overview') loadAccountOverview();
+}
+function refreshAfterAccChange(oldName,newName){
+  if(CUR_ACC===oldName) CUR_ACC=newName;
+  refreshAccounts();
 }
 function toggleRegion(r){
   const el=document.querySelector(`.region[data-r="${r}"]`);

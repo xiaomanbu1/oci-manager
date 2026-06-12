@@ -524,6 +524,7 @@ class OciManager:
 
         tasks = {
             "tenancy_name": lambda: safe(self.tenancy_name, self.account.tenancy[-12:]),
+            "home_region": lambda: safe(self.home_region, self.account.region),
             "cost": lambda: safe(lambda: self.monthly_cost(months), [], "cost"),
             "traffic": lambda: safe(lambda: self.monthly_traffic(months), [], "traffic"),
             "quotas": lambda: safe(self.quotas, {}),

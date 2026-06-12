@@ -68,6 +68,23 @@ def remove_account(name: str) -> bool:
     return True
 
 
+def rename_account(old: str, new: str) -> bool:
+    new = (new or "").strip()
+    if not new:
+        raise ValueError("新名称不能为空")
+    accounts = load_accounts()
+    if any(a.get("name") == new for a in accounts):
+        raise ValueError(f"名称「{new}」已存在")
+    found = False
+    for a in accounts:
+        if a.get("name") == old:
+            a["name"] = new
+            found = True
+    if found:
+        save_accounts(accounts)
+    return found
+
+
 def parse_oci_config(text: str) -> List[Dict]:
     """
     解析 OCI 标准配置文本（~/.oci/config 格式，可含多个 [profile]）。

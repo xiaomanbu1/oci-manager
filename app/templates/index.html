@@ -213,6 +213,7 @@
   .ov-card h4{flex-shrink:0}
   .ov-body{flex:1;min-height:0;display:flex;flex-direction:column;justify-content:space-between}
   .ov-body.scroll{justify-content:flex-start;display:block;overflow-y:auto}
+  .ov-body.compact{justify-content:center;gap:4px}
   .ov-body.scroll::-webkit-scrollbar{width:7px}
   .ov-card::before{content:'';position:absolute;top:0;left:0;right:0;height:2px;
     background:var(--cat,var(--amber));opacity:.85}
@@ -933,15 +934,25 @@ function renderOv(d){
   return `
     <div class="ov-card c-cost"><h4><span class="ico"></span>成本 · ${d.account}</h4><div class="ov-body">${cost}</div></div>
     <div class="ov-card c-traf"><h4><span class="ico"></span>流量（估算）</h4><div class="ov-body">${traf}</div></div>
-    <div class="ov-card c-sub"><h4><span class="ico"></span>订阅</h4><div class="ov-body">${sub}</div></div>
+    <div class="ov-card c-sub"><h4><span class="ico"></span>订阅</h4><div class="ov-body compact">${sub}</div></div>
     <div class="ov-card c-quota"><h4><span class="ico"></span>配额 · ${d.region}</h4><div class="ov-body scroll">${quota}</div></div>`;
 }
 
 /* ====== Profile 区域分组（可折叠） ====== */
-const REGION_CN={'il-jerusalem-1':'以色列','uk-london-1':'伦敦','af-johannesburg-1':'南非',
-  'us-sanjose-1':'圣何塞','ap-tokyo-1':'东京','ap-osaka-1':'大阪','ap-seoul-1':'首尔',
-  'ap-singapore-1':'新加坡','us-ashburn-1':'阿什本','us-phoenix-1':'凤凰城',
-  'eu-frankfurt-1':'法兰克福','ap-mumbai-1':'孟买','sa-saopaulo-1':'圣保罗','ca-toronto-1':'多伦多'};
+const REGION_CN={
+  'us-ashburn-1':'阿什本','us-phoenix-1':'凤凰城','us-sanjose-1':'圣何塞','us-chicago-1':'芝加哥','us-saltlake-2':'盐湖城',
+  'ca-toronto-1':'多伦多','ca-montreal-1':'蒙特利尔',
+  'sa-saopaulo-1':'圣保罗','sa-vinhedo-1':'维涅杜','sa-santiago-1':'圣地亚哥','sa-bogota-1':'波哥大','sa-valparaiso-1':'瓦尔帕莱索',
+  'uk-london-1':'伦敦','uk-cardiff-1':'卡迪夫','eu-frankfurt-1':'法兰克福','eu-zurich-1':'苏黎世','eu-amsterdam-1':'阿姆斯特丹',
+  'eu-madrid-1':'马德里','eu-marseille-1':'马赛','eu-milan-1':'米兰','eu-paris-1':'巴黎','eu-stockholm-1':'斯德哥尔摩',
+  'eu-jovanovac-1':'塞尔维亚','eu-dcc-milan-1':'米兰DCC','eu-dcc-dublin-1':'都柏林','eu-dcc-rating-1':'拉廷根','eu-dcc-rating-2':'拉廷根2','eu-crissier-1':'克里西耶',
+  'me-jeddah-1':'吉达','me-dubai-1':'迪拜','me-abudhabi-1':'阿布扎比','me-riyadh-1':'利雅得','me-dcc-muscat-1':'马斯喀特',
+  'il-jerusalem-1':'耶路撒冷','af-johannesburg-1':'约翰内斯堡',
+  'ap-tokyo-1':'东京','ap-osaka-1':'大阪','ap-seoul-1':'首尔','ap-chuncheon-1':'春川','ap-chuncheon-2':'春川2',
+  'ap-singapore-1':'新加坡','ap-singapore-2':'新加坡2','ap-mumbai-1':'孟买','ap-hyderabad-1':'海得拉巴',
+  'ap-sydney-1':'悉尼','ap-melbourne-1':'墨尔本','ap-kulai-1':'古来','ap-kulai-2':'古来2','ap-batam-1':'巴淡',
+  'ap-dcc-canberra-1':'堪培拉','ap-dcc-gazipur-1':'加济布尔','ap-suwon-1':'水原','mx-queretaro-1':'克雷塔罗','mx-monterrey-1':'蒙特雷'
+};
 let OPEN_REGIONS=new Set();
 async function loadProfiles(){
   const box=document.getElementById('profiles');

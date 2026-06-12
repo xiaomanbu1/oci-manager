@@ -460,14 +460,19 @@ class OciManager:
     ]
 
     def quotas(self) -> Dict:
-        """精选配额，按分类返回：{分类: [{label, value}]}。"""
+        """精选配额，按分类返回：{分类: [{label, value}]}。各服务并行拉取。"""
         services = {s for _, _, s, _ in self.QUOTA_SPEC}
-        maps = {s: self._limit_map(s) for s in services}
+        from concurrent.futures import ThreadPoolExecutor
+        maps = {}
+        with ThreadPoolExecutor(max_workers=len(services)) as ex:
+            futs = {s: ex.submit(self._limit_map, s) for s in services}
+            for s, f in futs.items():
+                maps[s] = f.result()
         out: Dict[str, list] = {}
         for cat, label, svc, name in self.QUOTA_SPEC:
             val = maps.get(svc, {}).get(name)
             if val is None:
-                continue  # 该 limit 不存在就不显示
+                continue
             out.setdefault(cat, []).append({"label": label, "value": val})
         return out
 
@@ -498,8 +503,14 @@ class OciManager:
             log.info("订阅信息不可用 (%s): %s", self.account.name, e)
             return {"available": False, "note": f"公共接口不可用: {str(e)[:80]}"}
 
-    def account_overview(self, months: int = 3) -> Dict:
-        """聚合一个账号的概览数据，单项失败不影响其他项。"""
+    def account_overview(self, months: int = 3, force: bool = False) -> Dict:
+        """聚合概览数据：各子项并行拉取（快很多），单项失败不影响其他项；带 60s 缓存。"""
+        import time
+        now = time.time()
+        cache = getattr(self, "_ov_cache", None)
+        if not force and cache and cache[0] == months and now - cache[1] < 60:
+            return cache[2]
+
         errs = {}
 
         def safe(fn, default, key=None):
@@ -511,16 +522,28 @@ class OciManager:
                     errs[key] = str(e)[:120]
                 return default
 
-        return {
+        tasks = {
+            "tenancy_name": lambda: safe(self.tenancy_name, self.account.tenancy[-12:]),
+            "cost": lambda: safe(lambda: self.monthly_cost(months), [], "cost"),
+            "traffic": lambda: safe(lambda: self.monthly_traffic(months), [], "traffic"),
+            "quotas": lambda: safe(self.quotas, {}),
+            "subscription": lambda: safe(self.subscription_info, {"available": False}),
+        }
+        from concurrent.futures import ThreadPoolExecutor
+        results = {}
+        with ThreadPoolExecutor(max_workers=5) as ex:
+            futs = {k: ex.submit(fn) for k, fn in tasks.items()}
+            for k, f in futs.items():
+                results[k] = f.result()
+
+        data = {
             "account": self.account.name,
             "region": self.account.region,
-            "tenancy_name": safe(self.tenancy_name, self.account.tenancy[-12:]),
-            "cost": safe(lambda: self.monthly_cost(months), [], "cost"),
-            "traffic": safe(lambda: self.monthly_traffic(months), [], "traffic"),
-            "quotas": safe(self.quotas, {}),
-            "subscription": safe(self.subscription_info, {"available": False}),
+            **results,
             "errors": errs,
         }
+        self._ov_cache = (months, now, data)
+        return data
 
     # ====================================================================
     #  用户管理 (IAM)
